@@ -1,4 +1,4 @@
-from machine import ADC, Pin
+from machine import ADC, Pin, SPI
 import network
 from time import sleep
 
@@ -24,7 +24,12 @@ class RpiPico:
     # Inalámbrico
     wifi = None
 
-    hostname = 'Rpi-Pico-W'
+    i2c0 = None
+    i2c1 = None
+    spi0 = None
+    spi0_cs = None
+    spi1 = None
+    spi1_cs = None
 
     def __init__ (self, ssid=None, password=None, debug=False, country="ES",
                   alternatives_ap=None,
@@ -39,6 +44,7 @@ class RpiPico:
             alternatives_ap (tuple): Puedes pasar una tupla con redes adicionales.
             country (str): Código del país. Por defecto 'ES'.
         """
+        self.locked = True
         self.DEBUG = debug
         self.SSID = ssid
         self.PASSWORD = password
@@ -63,6 +69,62 @@ class RpiPico:
         sleep(0.100)
 
         self.reset_stats()
+        self.locked = False
+
+    def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0):
+        """
+        Crea una instancia SPI para el bus especificado.
+
+        Args:
+            pin_sck: Pin de reloj (SCK).
+            pin_mosi: Pin de datos de salida (MOSI).
+            pin_miso: Pin de datos de entrada (MISO).
+            pin_cs: Pin para cable select (CS).
+            bus: Número de bus SPI (0 o 1).
+
+        Returns:
+            Instancia SPI configurada or None.
+        """
+
+        if bus > 1:
+            return None
+
+        self.locked = True
+
+        try:
+            spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), miso=Pin(pin_miso))
+            spi_cs = Pin(pin_cs, Pin.OUT)
+
+            if bus == 0:
+                self.spi0 = spi
+                self.spi0_cs = spi_cs
+            elif bus == 1:
+                self.spi1 = spi
+                self.spi1_cs = spi_cs
+        except Exception as e:
+            if self.DEBUG:
+                print('Error en set_spi:', e)
+
+            self.locked = False
+
+            return None
+
+        self.locked = False
+
+        return spi
+
+    def get_spi_cs(self, bus=0):
+        """
+        Devuelve la instancia del pin CS para un bus SPI.
+        :param bus: Número de bus SPI (0 o 1).
+        :return: SPI instance or None
+        """
+        if bus == 0:
+            return self.spi0_cs
+        elif bus == 1:
+            return self.spi1_cs
+
+        return None
 
     def reset_stats (self, temp=None) -> None:
         """

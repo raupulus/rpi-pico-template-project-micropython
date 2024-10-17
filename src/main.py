@@ -18,7 +18,8 @@ controller = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
                      hostname=env.HOSTNAME)
 
 
-
+# Ejemplo Instanciando SPI en bus 0.
+spi0 = controller.set_spi(2, 3, 4, 5, 0)
 
 """
 TODO:
@@ -26,6 +27,7 @@ TODO:
 - métodos para setear i2c 1,2... los que tenga
 - métodos para setear ADC
 - Métodos para setear callback en un pin por alta y baja
+- Implementar métodos para calcular estado de una batería de 3,7V
 
 En api:
 
@@ -35,23 +37,10 @@ En api:
 """
 
 
-
-
-
-
-
-sleep_ms(20)
-
 #i2c = I2C(0, scl=Pin(20), sda=Pin(21))
 #address = 0x03 # Dirección del dispositivo i2c
 
-#spi = SPI(0, baudrate=2000000, sck=Pin(2), mosi=Pin(3), miso=Pin(4))
-spi = SPI(0, sck=Pin(2), mosi=Pin(3), miso=Pin(4))
-address = 5 # CS Pin en el caso de SPI
 
-sleep_ms(500)
-sensor = Lightning(spi=spi, address=address, pin_irq=22, debug=env.DEBUG,
-                   indoor=True)
 
 sleep_ms(200)
 
@@ -59,6 +48,8 @@ sleep_ms(200)
 api = Api(controller=controller, url=env.API_URL, path=env.API_PATH,
           token=env.API_TOKEN, device_id=env.DEVICE_ID, debug=env.DEBUG)
 
+
+# Pausa preventiva al desarrollar (ajustar, pero si usas dos hilos puede ahorrar tiempo por bloqueos de hardware ante errores)
 sleep_ms(3000)
 
 
@@ -69,6 +60,7 @@ def thread1 ():
 
     if env.DEBUG:
         print('Inicia hilo principal (thread1)')
+
 
 def thread0 ():
     """
