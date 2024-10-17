@@ -5,17 +5,29 @@ from Models.RpiPico import RpiPico
 
 # Importo variables de entorno
 import env
-from machine import I2C, Pin, SPI
 
 # Habilito recolector de basura
 gc.enable()
 
 DEBUG = env.DEBUG
 
-# Rpi Pico Model
+# Rpi Pico Model Instance
 controller = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
-                     alternatives_ap=env.ALTERNATIVES_AP,
-                     hostname=env.HOSTNAME)
+                     alternatives_ap=env.ALTERNATIVES_AP, hostname=env.HOSTNAME)
+
+# Ejemplo Mostrando temperatura de cpu tras 5 lecturas (+1 al instanciar modelo)
+print('Leyendo temperatura por 1a vez:', str(controller.get_cpu_temperature()))
+sleep_ms(100)
+print('Leyendo temperatura por 2a vez:', str(controller.get_cpu_temperature()))
+sleep_ms(100)
+print('Leyendo temperatura por 3a vez:', str(controller.get_cpu_temperature()))
+sleep_ms(100)
+print('Leyendo temperatura por 4a vez:', str(controller.get_cpu_temperature()))
+sleep_ms(100)
+print('Leyendo temperatura por 5a vez:', str(controller.get_cpu_temperature()))
+sleep_ms(100)
+print('Mostrando estadisticas de temperatura para CPU:', str(controller.get_cpu_temperature_stats()))
+sleep_ms(100)
 
 
 # Ejemplo Instanciando SPI en bus 0.
@@ -23,7 +35,6 @@ spi0 = controller.set_spi(2, 3, 4, 5, 0)
 
 """
 TODO:
-- métodos para setear spi 0,1,2... los que tenga
 - métodos para setear i2c 1,2... los que tenga
 - métodos para setear ADC
 - Métodos para setear callback en un pin por alta y baja
@@ -33,7 +44,6 @@ En api:
 
 - Implementar un get
 - Implementar un post
-
 """
 
 
@@ -55,20 +65,36 @@ sleep_ms(3000)
 
 def thread1 ():
     """
-    Primer hilo, flujo principal de la aplicación.
+    Segundo hilo.
+
+    En este hilo colocamos otras operaciones con cuidado frente a la
+    concurrencia.
+
+    Recomiendo utilizar sistemas de bloqueo y pruebas independientes con las
+    funcionalidades que vayas a usar en paralelo. Se puede romper la ejecución.
     """
 
     if env.DEBUG:
+        print('')
         print('Inicia hilo principal (thread1)')
 
 
 def thread0 ():
     """
     Primer hilo, flujo principal de la aplicación.
+    En este hilo colocamos toda la lógica principal de funcionamiento.
     """
 
     if env.DEBUG:
+        print('')
         print('Inicia hilo principal (thread0)')
+
+
+    print('')
+    print('Termina el primer ciclo del hilo 0')
+    print('')
+
+    sleep_ms(10000)
 
 
 while True:

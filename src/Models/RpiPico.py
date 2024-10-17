@@ -1,4 +1,4 @@
-from machine import ADC, Pin, SPI
+from machine import ADC, Pin, SPI, I2C
 import network
 from time import sleep
 
@@ -9,31 +9,52 @@ WIFI_CONNECTED = 3
 
 
 class RpiPico:
-    INTEGRATED_TEMP_CORRECTION = 27  # Corrección de temperatura interna para ajustar lecturas
+    # Corrección de temperatura interna para ajustar lecturas.
+    INTEGRATED_TEMP_CORRECTION = 27
+
+    # Corrección de voltaje ADC.
     adc_voltage_correction = 0.706
+
+    # Voltaje de trabajo.
     voltage_working = 3.3
-    num_of_measurements = 0  # Número de mediciones de temperatura
+
+    # Estadísticas para la temperatura del procesador.
+    cpu_temp_stats = {
+        "max": 0.0,
+        "min": 0.0,
+        "avg": 0.0,
+        "current": 0.0,
+        "num_of_measurements": 0, # Veces que se ha medido
+        "sum_of_temps": 0.0, # Suma de todas las temperaturas medidas
+    }
+
+    # Número de mediciones de temperatura.
+    num_of_measurements = 0
 
     max = 0
     min = 0
     avg = 0
     current = 0
-    sum_of_temps = 0  # Suma de todas las lecturas de temperatura
+    sum_of_temps = 0  # Suma de todas las lecturas de temperatura.
+
+    # Indica si el microcontrolador está bloqueado con una operación delicada.
     locked = False
 
-    # Inalámbrico
+    # Instancia que representa el Wireless si estuviera establecido.
     wifi = None
 
+    # Configuración de Buses I2C.
     i2c0 = None
     i2c1 = None
+
+    # Configuración de Buses SPI.
     spi0 = None
     spi0_cs = None
     spi1 = None
     spi1_cs = None
 
     def __init__ (self, ssid=None, password=None, debug=False, country="ES",
-                  alternatives_ap=None,
-                  hostname="Rpi-Pico-W"):
+                  alternatives_ap=None, hostname="Rpi-Pico-W"):
         """
         Constructor de la clase para Raspberry Pi Pico W.
 
@@ -41,8 +62,9 @@ class RpiPico:
             ssid (str): ID de red para la conexión Wi-Fi. Por defecto None.
             password (str): Contraseña para la conexión Wi-Fi. Por defecto None.
             debug (bool): Indica si se muestran los mensajes de debug. Por defecto False.
-            alternatives_ap (tuple): Puedes pasar una tupla con redes adicionales.
             country (str): Código del país. Por defecto 'ES'.
+            alternatives_ap (tuple): Puedes pasar una tupla con redes adicionales.
+            hostname (str): Nombre del dispositivo en la red.
         """
         self.locked = True
         self.DEBUG = debug
@@ -68,7 +90,7 @@ class RpiPico:
 
         sleep(0.100)
 
-        self.reset_stats()
+        self.cpu_temperature_reset_stats()
         self.locked = False
 
     def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0):
@@ -126,20 +148,23 @@ class RpiPico:
 
         return None
 
-    def reset_stats (self, temp=None) -> None:
+    def cpu_temperature_reset_stats (self, temp=0.0) -> None:
         """
         Reinicia las estadísticas de temperatura.
 
         Args:
-            temp (float): Valor inicial con el que resetear las estadísticas. Por defecto None.
+            temp (float): Valor inicial con el que resetear las estadísticas. Por defecto 0.0.
         """
-        temp = temp if temp else self.read_sensor_temp()
-        self.max = temp
-        self.min = temp
-        self.avg = temp
-        self.current = temp
+        temp = temp if temp else self.cpu_temperature_read_sensor()
 
-    def read_sensor_temp (self) -> float:
+        self.cpu_temp_stats["num_of_measurements"] = 1
+        self.cpu_temp_stats["sum_of_temps"] = temp
+        self.cpu_temp_stats["max"] = temp
+        self.cpu_temp_stats["min"] = temp
+        self.cpu_temp_stats["avg"] = temp
+        self.cpu_temp_stats["current"] = temp
+
+    def cpu_temperature_read_sensor (self) -> float:
         """
         Lee la temperatura actual del sensor.
 
@@ -148,35 +173,40 @@ class RpiPico:
         """
         # Continúa si no está bloqueado
         if self.locked:
-            return self.current
+            return self.cpu_temp_stats["current"]
 
-        reading = (
-                              self.TEMP_SENSOR.read_u16() * self.adc_conversion_factor) - self.adc_voltage_correction
+        self.locked = True
+
+        reading = (self.TEMP_SENSOR.read_u16() * self.adc_conversion_factor) - self.adc_voltage_correction
         value = self.INTEGRATED_TEMP_CORRECTION - reading / 0.001721
 
         cpu_temp = round(float(value), 1)
-        self.current = cpu_temp
+        self.cpu_temp_stats["current"] = cpu_temp
 
-        # Actualiza las estadísticas
-        if cpu_temp > self.max:
-            self.max = cpu_temp
-        if cpu_temp < self.min:
-            self.min = cpu_temp
+        # Comprueba si supera la máxima registrada.
+        if cpu_temp > self.cpu_temp_stats["max"]:
+            self.cpu_temp_stats["max"] = cpu_temp
 
-        self.num_of_measurements += 1
-        self.sum_of_temps += cpu_temp
-        self.avg = round(self.sum_of_temps / self.num_of_measurements, 1)
+        # Comprueba si es inferior a la mínima registrada.
+        if cpu_temp < self.cpu_temp_stats["min"]:
+            self.cpu_temp_stats["min"] = cpu_temp
+
+        self.cpu_temp_stats["num_of_measurements"] += 1
+        self.cpu_temp_stats["sum_of_temps"] += cpu_temp
+        self.cpu_temp_stats["avg"] = round(self.cpu_temp_stats["sum_of_temps"] / self.cpu_temp_stats["num_of_measurements"], 1)
+
+        self.locked = False
 
         return cpu_temp
 
-    def get_temp (self) -> float:
+    def get_cpu_temperature (self) -> float:
         """
         Obtiene la temperatura actual.
 
         Returns:
             float: Temperatura actual.
         """
-        return self.read_sensor_temp()
+        return self.cpu_temperature_read_sensor()
 
     def led_on (self) -> None:
         """
@@ -194,19 +224,14 @@ class RpiPico:
         """
         self.LED_INTEGRATED.off()
 
-    def get_temp_stats (self) -> dict:
+    def get_cpu_temperature_stats (self) -> dict:
         """
         Obtiene las estadísticas actuales de temperatura.
 
         Returns:
             dict: Contiene la temperatura máxima, mínima, promedio y actual.
         """
-        return {
-            'max': self.max,
-            'min': self.min,
-            'avg': self.avg,
-            'current': self.current
-        }
+        return self.cpu_temp_stats
 
     def wifi_status (self) -> int:
         """
