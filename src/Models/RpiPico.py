@@ -53,6 +53,9 @@ class RpiPico:
     spi1 = None
     spi1_cs = None
 
+    # Lista con todos los callbacks asociados.
+    callbacks = []
+
     def __init__ (self, ssid=None, password=None, debug=False, country="ES",
                   alternatives_ap=None, hostname="Rpi-Pico-W"):
         """
@@ -93,6 +96,55 @@ class RpiPico:
         sleep_ms(100)
 
         self.cpu_temperature_reset_stats()
+        self.locked = False
+
+    def set_callback_to_pin(self, pin_number, callback, event="HIGH") -> None:
+        """
+        Configura un callback para un evento de cambio de estado en un pin.
+
+        Args:
+            pin_number: Número del pin que representa GPIO.
+            callback: Función a ejecutar cuando se detecte el evento.
+            event: Estado del pin que activará el callback ("HIGH" o "LOW").
+
+        Raises:
+            ValueError: Si ya existe un callback configurado para el pin.
+        """
+
+        self.locked = True
+        sleep_ms(100)
+
+        # Verifico si ya existe un callback para el pin
+        for cb_data in self.callbacks:
+            if cb_data["pin"] == pin_number:
+                raise ValueError(
+                    f"Ya existe un callback configurado para el pin {str(pin_number)}")
+
+        # Configura el pin como entrada con pull-up
+        pin = Pin(pin_number, Pin.IN, Pin.PULL_UP)
+        trigger = Pin.IRQ_RISING if event == "HIGH" else Pin.IRQ_FALLING
+        pin.irq(trigger=trigger, handler=callback)
+
+        # Agrega el callback a la lista
+        self.callbacks.append({
+            "pin": pin,
+            "callback": callback
+        })
+
+        self.locked = False
+
+    def disable_all_callbacks (self):
+        """
+        Deshabilita todos los callbacks que existan asociados a IRQ.
+        :return:
+        """
+        self.locked = True
+        sleep_ms(100)
+
+        for callback_data in self.callbacks:
+            callback_data["pin"].irq(trigger=Pin.IRQ_DISABLE)
+
+        self.callbacks.clear()
         self.locked = False
 
     def set_i2c(self, pin_sda, pin_scl, bus=0, frequency=400000):

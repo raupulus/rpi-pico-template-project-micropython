@@ -12,36 +12,40 @@ gc.enable()
 DEBUG = env.DEBUG
 
 # Rpi Pico Model Instance
-controller = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
+rpi = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
                      alternatives_ap=env.ALTERNATIVES_AP, hostname=env.HOSTNAME)
 
 # Ejemplo Mostrando temperatura de cpu tras 5 lecturas (+1 al instanciar modelo)
-print('Leyendo temperatura por 1a vez:', str(controller.get_cpu_temperature()))
+print('Leyendo temperatura por 1a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
-print('Leyendo temperatura por 2a vez:', str(controller.get_cpu_temperature()))
+print('Leyendo temperatura por 2a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
-print('Leyendo temperatura por 3a vez:', str(controller.get_cpu_temperature()))
+print('Leyendo temperatura por 3a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
-print('Leyendo temperatura por 4a vez:', str(controller.get_cpu_temperature()))
+print('Leyendo temperatura por 4a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
-print('Leyendo temperatura por 5a vez:', str(controller.get_cpu_temperature()))
+print('Leyendo temperatura por 5a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
-print('Mostrando estadisticas de temperatura para CPU:', str(controller.get_cpu_temperature_stats()))
+print('Mostrando estadisticas de temperatura para CPU:', str(rpi.get_cpu_temperature_stats()))
 
 sleep_ms(100)
 
 # Ejemplo instanciando SPI en bus 0.
-spi0 = controller.set_spi(2, 3, 4, 5, 0)
+spi0 = rpi.set_spi(2, 3, 4, 5, 0)
 
 sleep_ms(100)
 
 # Ejemplo instanciando I2C en bus 0.
-i2c0 = controller.set_i2c(20, 21, 0, 400000)
+i2c0 = rpi.set_i2c(20, 21, 0, 400000)
 address = 0x03 # Dirección de un dispositivo i2c
 # Ya podemos usar nuestro sensor con la dirección almacenada en "address"
 
 # Ejemplo escaneando todos los dispositivos encontrados por I2C.
 print('Dispositivos encontrados por I2C:', i2c0.scan())
+
+# Ejemplo asociando un callback al recibir +3.3v en el gpio 2
+#rpi.set_callback_to_pin(2, "LOW", tu_callback)
+rpi.set_callback_to_pin(2, lambda p: print("Se ejecuta el callback"), "LOW")
 
 """
 TODO:
@@ -58,7 +62,7 @@ En api:
 sleep_ms(200)
 
 # Api
-api = Api(controller=controller, url=env.API_URL, path=env.API_PATH,
+api = Api(controller=rpi, url=env.API_URL, path=env.API_PATH,
           token=env.API_TOKEN, device_id=env.DEVICE_ID, debug=env.DEBUG)
 
 
