@@ -2,7 +2,6 @@ import gc
 from time import sleep_ms
 from Models.Api import Api
 from Models.RpiPico import RpiPico
-from Models.Lightning import Lightning
 
 # Importo variables de entorno
 import env
@@ -11,10 +10,35 @@ from machine import I2C, Pin, SPI
 # Habilito recolector de basura
 gc.enable()
 
+DEBUG = env.DEBUG
+
 # Rpi Pico Model
-controller = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=env.DEBUG,
+controller = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
                      alternatives_ap=env.ALTERNATIVES_AP,
-                     hostname="Lightning")
+                     hostname=env.HOSTNAME)
+
+
+
+
+"""
+TODO:
+- métodos para setear spi 0,1,2... los que tenga
+- métodos para setear i2c 1,2... los que tenga
+- métodos para setear ADC
+- Métodos para setear callback en un pin por alta y baja
+
+En api:
+
+- Implementar un get
+- Implementar un post
+
+"""
+
+
+
+
+
+
 
 sleep_ms(20)
 
@@ -37,6 +61,14 @@ api = Api(controller=controller, url=env.API_URL, path=env.API_PATH,
 
 sleep_ms(3000)
 
+
+def thread1 ():
+    """
+    Primer hilo, flujo principal de la aplicación.
+    """
+
+    if env.DEBUG:
+        print('Inicia hilo principal (thread1)')
 
 def thread0 ():
     """

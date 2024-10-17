@@ -1,4 +1,5 @@
 # Wireless
+HOSTNAME = "RpiPicoW"
 AP_NAME = ""
 AP_PASS = ""
 
