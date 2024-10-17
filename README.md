@@ -1,6 +1,33 @@
 # Proyecto: Plantilla básica para comenzar proyectos en Raspberry Pi Pico con Micropython
 
+El contenido de este repositorio tiene la única finalidad de utilizarse como
+plantilla al crear otros proyectos reutilizando partes que suelo necesitar
+de forma recurrente para acelerar el desarrollo.
 
+Sitio web del autor: [https://raupulus.dev](https://raupulus.dev)
+
+![Imagen del Proyecto](docs/images/img1.jpg "Imagen Principal de raspberry pi pico w")
+
+Repository [https://gitlab.com/raupulus/rpi-pico-template-project-micropython](https://gitlab.com/raupulus/rpi-pico-template-project-micropython)
+
+Una de las ventajas es que en **Models** ya disponemos de dos modelos que
+suelen ser fundamentales para mi: 
+
+- API: Para interactuar fácilmente con mis apis enviando/recibiendo datos
+- RpiPico: Representa a la raspberry: incluye conectividad wireless, gestión de
+  ADC integrado, puede obtener información de la red y conectar a redes 
+  alternativas por si nos desplazamos (usamos en varias ubicaciones) o 
+  necesitamos un respaldo, información de temperatura...
+
+Además de algunos parámetros básicos en el archivo de variables de entorno
+que usamos como base **.env.example.py**
+
+<p align="center">
+  <img src="docs/images/2.jpg" alt="Raspberry pi pico w image 1" height="150">
+  <img src="docs/images/3.jpg" alt="Raspberry pi pico w image 2" height="150">
+  <img src="docs/images/4.jpg" alt="Raspberry pi pico w image 3" height="150">
+  <img src="docs/images/scheme_thumbnail.jpg" alt="Raspberry pi pico w esquema de pines" height="150">
+</p>
 
 ## Software y Firmware
 
@@ -8,86 +35,28 @@
 - [MicroPython 1.23](https://micropython.org/download/rp2-pico/) instalado 
   en la Raspberry Pi Pico.
 
-## Add your files
+## Contenido del Repositorio
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+- **src/**: Código fuente del proyecto.
+- **src/Models**: Modelos/Clases para separar entidades que intervienen.
+- **docs/**: Documentación adicional, esquemas y guías de instalación.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/raupulus/rpi-pico-template-project-micropython.git
-git branch -M main
-git push -uf origin main
-```
+## Instalación
 
-## Integrate with your tools
+1. **Instalación de MicroPython:**
+   - Asegúrate de que MicroPython esté instalado en tu Raspberry Pi Pico. Puedes seguir las instrucciones en la [documentación oficial](https://docs.micropython.org/en/latest/rp2/quickref.html).
 
-- [ ] [Set up project integrations](https://gitlab.com/raupulus/rpi-pico-template-project-micropython/-/settings/integrations)
+2. **Cargar el Código:**
+   - Descarga o clona este repositorio.
+   - Copia el archivo *.env.example.py* a *env.py* y rellena los datos para 
+     conectar al wireless además de la ruta para subir datos a tu API.
+   - Copia los archivos en la carpeta `src/` a la Raspberry Pi Pico.
 
-## Collaborate with your team
+## Esquema de la raspberry pi pico
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+![Imagen del Proyecto](docs/images/scheme.png "Esquema de pines para la raspberry pi pico")
 
-## Test and Deploy
+## Licencia
 
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Este proyecto está licenciado bajo la Licencia GPLv3. Consulta el archivo 
+LICENSE para más detalles.
