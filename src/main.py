@@ -15,6 +15,11 @@ DEBUG = env.DEBUG
 rpi = RpiPico(ssid=env.AP_NAME, password=env.AP_PASS, debug=DEBUG,
                      alternatives_ap=env.ALTERNATIVES_AP, hostname=env.HOSTNAME)
 
+sleep_ms(100)
+
+# Debug para mostrar el estado del wifi
+rpi.wifi_debug()
+
 # Ejemplo Mostrando temperatura de cpu tras 5 lecturas (+1 al instanciar modelo)
 print('Leyendo temperatura por 1a vez:', str(rpi.get_cpu_temperature()))
 sleep_ms(100)
@@ -49,8 +54,6 @@ rpi.set_callback_to_pin(2, lambda p: print("Se ejecuta el callback"), "LOW")
 
 """
 TODO:
-- Métodos para setear callback en un pin por alta y baja
-- métodos para setear ADC
 - Implementar métodos para calcular estado de una batería de 3,7V
 
 En api:
