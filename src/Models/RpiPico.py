@@ -56,6 +56,9 @@ class RpiPico:
     # Lista con todos los callbacks asociados.
     callbacks = []
 
+    # Almaceno batería externa si la configuramos
+    external_battery = None
+
     def __init__ (self, ssid=None, password=None, debug=False, country="ES",
                   alternatives_ap=None, hostname="Rpi-Pico-W"):
         """
@@ -519,3 +522,45 @@ class RpiPico:
         reading = ADC(pin).read_u16()
 
         return self.voltage_working - ((reading / 65535) * self.voltage_working)
+
+    def read_external_battery (self):
+        min_voltage = self.external_battery["threshold_voltage_min"]
+        max_voltage = self.external_battery["threshold_voltage_max"]
+        adc = self.external_battery["adc"]
+        adc_value = adc.read_u16()
+
+        # Convierto la lectura a voltaje
+        voltage = adc_value * (max_voltage / 65535)
+
+        percentage_raw = ((voltage - min_voltage) / (max_voltage -  min_voltage)* 100)
+
+        percentage =  max(0.0, min(percentage_raw, 100.0))
+
+        self.external_battery["voltage_current"] = voltage
+        self.external_battery["voltage_percentage"] = percentage
+
+        if self.external_battery["voltage_min"] is None or voltage < self.external_battery["voltage_min"]:
+            self.external_battery["voltage_min"] = voltage
+            self.external_battery["voltage_percentage_min"] = percentage
+
+        if (self.external_battery["voltage_max"] is None or voltage > self.external_battery["voltage_max"]):
+            self.external_battery["voltage_max"] = voltage
+            self.external_battery["voltage_percentage_max"] = percentage
+
+        return self.external_battery
+
+    def set_external_battery(self, pin, threshold_voltage_min=2.5, threshold_voltage_max=4.2):
+        self.external_battery = {
+            "pin": pin,
+            "adc": ADC(pin),
+            "threshold_voltage_min": threshold_voltage_min,
+            "threshold_voltage_max": threshold_voltage_max,
+            "voltage_current": None,
+            "voltage_min": None,
+            "voltage_max": None,
+            "voltage_percentage": None,
+            "voltage_percentage_min": None,
+            "voltage_percentage_max": None,
+        }
+
+        self.read_external_battery()

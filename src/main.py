@@ -52,10 +52,11 @@ print('Dispositivos encontrados por I2C:', i2c0.scan())
 #rpi.set_callback_to_pin(2, "LOW", tu_callback)
 rpi.set_callback_to_pin(2, lambda p: print("Se ejecuta el callback"), "LOW")
 
-"""
-TODO:
-- Implementar métodos para calcular estado de una batería de 3,7V
+# Ejemplo leyendo batería externa (¡Cuidado! usa divisor de tensión, max 3,3v)
+rpi.set_external_battery(28)
+rpi.read_external_battery()
 
+"""
 En api:
 
 - Implementar un get
@@ -99,6 +100,8 @@ def thread0 ():
         print('')
         print('Inicia hilo principal (thread0)')
 
+
+    print("Batería externa:", rpi.read_external_battery())
 
     print('')
     print('Termina el primer ciclo del hilo 0')
