@@ -56,16 +56,9 @@ rpi.set_callback_to_pin(2, lambda p: print("Se ejecuta el callback"), "LOW")
 rpi.set_external_battery(28)
 rpi.read_external_battery()
 
-"""
-En api:
-
-- Implementar un get
-- Implementar un post
-"""
-
 sleep_ms(200)
 
-# Api
+# Preparo la instancia para la comunicación con la API
 api = Api(controller=rpi, url=env.API_URL, path=env.API_PATH,
           token=env.API_TOKEN, device_id=env.DEVICE_ID, debug=env.DEBUG)
 
@@ -101,7 +94,7 @@ def thread0 ():
         print('Inicia hilo principal (thread0)')
 
 
-    print("Batería externa:", rpi.read_external_battery())
+    #print("Batería externa:", rpi.read_external_battery())
 
     print('')
     print('Termina el primer ciclo del hilo 0')

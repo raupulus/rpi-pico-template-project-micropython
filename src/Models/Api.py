@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 import urequests
-#import ujson
+import ujson
 
 
 class Api:
@@ -25,32 +25,67 @@ class Api:
         self.CONTROLLER = controller
         self.DEBUG = debug
 
-    def send_to_api (self) -> bool:
-        """
-        Guarda los datos en la API.
-        :return:
-        """
+    def get_data_from_api (self):
         try:
 
             headers = {
                 "Authorization": "Bearer " + self.TOKEN,
+                "Content-Type": "application/json",
                 "Device-Id": str(self.DEVICE_ID)
             }
 
             url = self.URL + self.URL_PATH
 
-            # TODO: esto tiene que hacerse POST y enviar hardware_device_id
-
             response = urequests.get(url, headers=headers)
 
+            data = ujson.loads(response.text)
+
+            if self.DEBUG:
+                print('Respuesta de la API:', response)
+                print('Respuesta de la API en json:', data)
+
+            if response.status_code == 201:
+                return data
+
+        except Exception as e:
+            if self.DEBUG:
+                print("Error al obtener los datos de la api: ", e)
+            return False
+
+    def send_to_api (self, data={}) -> bool:
+        """
+        Envía los datos a la API mediante una petición POST.
+
+        Args:
+            data: Diccionario con los datos a enviar.
+
+        Returns:
+            bool: True si la petición fue exitosa, False en caso contrario.
+        """
+        try:
+            headers = {
+                "Authorization": "Bearer " + self.TOKEN,
+                "Content-Type": "application/json"
+            }
+
+            url = self.URL + self.URL_PATH
+
+            payload = {
+                "data": data,
+                "hardware_device_id": self.DEVICE_ID
+            }
+
+            response = urequests.post(url, headers=headers, json=payload)
             #data = ujson.loads(response.text)
 
             if self.DEBUG:
                 print('Respuesta de la API:', response)
+
             if response.status_code == 201:
                 return True
 
         except Exception as e:
             if self.DEBUG:
                 print("Error al obtener los datos de la api: ", e)
+
             return False
