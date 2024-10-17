@@ -27,17 +27,26 @@ sleep_ms(100)
 print('Leyendo temperatura por 5a vez:', str(controller.get_cpu_temperature()))
 sleep_ms(100)
 print('Mostrando estadisticas de temperatura para CPU:', str(controller.get_cpu_temperature_stats()))
+
 sleep_ms(100)
 
-
-# Ejemplo Instanciando SPI en bus 0.
+# Ejemplo instanciando SPI en bus 0.
 spi0 = controller.set_spi(2, 3, 4, 5, 0)
+
+sleep_ms(100)
+
+# Ejemplo instanciando I2C en bus 0.
+i2c0 = controller.set_i2c(20, 21, 0, 400000)
+address = 0x03 # Dirección de un dispositivo i2c
+# Ya podemos usar nuestro sensor con la dirección almacenada en "address"
+
+# Ejemplo escaneando todos los dispositivos encontrados por I2C.
+print('Dispositivos encontrados por I2C:', i2c0.scan())
 
 """
 TODO:
-- métodos para setear i2c 1,2... los que tenga
-- métodos para setear ADC
 - Métodos para setear callback en un pin por alta y baja
+- métodos para setear ADC
 - Implementar métodos para calcular estado de una batería de 3,7V
 
 En api:
@@ -45,12 +54,6 @@ En api:
 - Implementar un get
 - Implementar un post
 """
-
-
-#i2c = I2C(0, scl=Pin(20), sda=Pin(21))
-#address = 0x03 # Dirección del dispositivo i2c
-
-
 
 sleep_ms(200)
 

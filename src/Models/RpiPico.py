@@ -1,6 +1,6 @@
 from machine import ADC, Pin, SPI, I2C
 import network
-from time import sleep
+from time import sleep_ms
 
 # Constants
 WIFI_DISCONNECTED = 0
@@ -74,12 +74,14 @@ class RpiPico:
         self.hostname = hostname
         self.alternatives_ap = alternatives_ap
 
-        self.TEMP_SENSOR = ADC(4)  # Sensor interno de Raspberry Pi Pico.
+        # Sensor interno de Raspberry Pi Pico para temperatura de CPU.
+        self.TEMP_SENSOR = ADC(4)
 
-        self.LED_INTEGRATED = Pin("LED",
-                                  Pin.OUT)  # Definición del GPIO para el LED integrado
+        # Defino Pin para el LED integrado
+        self.LED_INTEGRATED = Pin("LED", Pin.OUT)
 
-        self.adc_conversion_factor = self.voltage_working / 65535  # Factor de conversión de 16 bits
+        # Factor de conversión de 16 bits para corregir ADC.
+        self.adc_conversion_factor = self.voltage_working / 65535
 
         # Si se proporcionan credenciales del AP intenta la conexión
         if ssid and password:
@@ -88,10 +90,48 @@ class RpiPico:
 
             self.wifi_connect(ssid, password)
 
-        sleep(0.100)
+        sleep_ms(100)
 
         self.cpu_temperature_reset_stats()
         self.locked = False
+
+    def set_i2c(self, pin_sda, pin_scl, bus=0, frequency=400000):
+        """
+        Crea una instancia I2C para la comunicación I2C.
+
+        Args:
+            pin_sda: Pin de datos serie (SDA).
+            pin_scl: Pin de reloj serie (SCL).
+            bus: Bus I2C (0 o 1).
+            frequency: Frecuencia de reloj en Hz (por defecto 400000 Hz).
+
+        Returns:
+            Instancia I2C configurada.
+        """
+        if bus > 1:
+            return None
+
+        self.locked = True
+        sleep_ms(100)
+
+        try:
+            i2c = I2C(bus, sda=Pin(pin_sda), scl=Pin(pin_scl), freq=frequency)
+
+            if bus == 0:
+                self.i2c0 = i2c
+            elif bus == 1:
+                self.i2c1 = i2c
+        except Exception as e:
+            if self.DEBUG:
+                print('Error en set_i2c:', e)
+
+            self.locked = False
+
+            return None
+
+        self.locked = False
+
+        return i2c
 
     def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0):
         """
@@ -112,6 +152,7 @@ class RpiPico:
             return None
 
         self.locked = True
+        sleep_ms(100)
 
         try:
             spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), miso=Pin(pin_miso))
@@ -354,7 +395,7 @@ class RpiPico:
                     if ap['ssid'] in available_ssids:
                         self.wifi.connect(ap['ssid'], ap['password'])
 
-            sleep(1)
+            sleep_ms(1000)
 
             if self.wifi_is_connected():
                 if self.DEBUG:
