@@ -1,12 +1,12 @@
-# rpi-pico-template-project-micropython
+# Proyecto: Plantilla básica para comenzar proyectos en Raspberry Pi Pico con Micropython
 
 
 
-## Getting started
+## Software y Firmware
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- IDE/Editor (EJ: thonny, pycharm o vscode)
+- [MicroPython 1.23](https://micropython.org/download/rp2-pico/) instalado 
+  en la Raspberry Pi Pico.
 
 ## Add your files
 
