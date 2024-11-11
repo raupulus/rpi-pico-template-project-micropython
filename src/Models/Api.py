@@ -5,6 +5,41 @@ import urequests
 import ujson
 
 
+def get_time_utc ():
+    """Obtiene la hora actual en formato UTC desde la API 'worldtimeapi.org'."""
+    try:
+        response = urequests.get('http://worldtimeapi.org/api/timezone/Etc/UTC.json')
+        data = response.json()
+        response.close()
+
+        # Extraer la fecha y hora en formato 'YYYY-MM-DDTHH:MM:SS.ssssss+00:00'
+        datetime_str = data['datetime']
+        # El formato es '2024-11-11T06:20:25.522376+00:00'
+        datetime_parts = datetime_str.split('T')  # Divide 'YYYY-MM-DD' y 'HH:MM:SS.ssssss+00:00'
+        date_part = datetime_parts[0]  # '2024-11-11'
+        time_part = datetime_parts[1].split('+')[0]  # '06:20:25.522376' (ignoramos la zona horaria)
+
+        # Desglosar la fecha
+        year, month, day = map(int, date_part.split('-'))
+
+        # Desglosar la hora (tomando solo hora, minuto y segundo)
+        time_parts = time_part.split(':')
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        second = int(float(time_parts[2]))  # Convertimos la parte de los segundos en entero
+
+        # Información adicional
+        day_of_week = data['day_of_week']
+        day_of_year = data['day_of_year']
+        week_number = data['week_number']
+
+        return year, month, day, hour, minute, second, day_of_week, day_of_year, week_number
+
+    except Exception as e:
+        print("Error obtaining the time from the API:", e)
+        return None
+
+
 class Api:
     """
     A class representing an API connection with methods to interact with the endpoint.

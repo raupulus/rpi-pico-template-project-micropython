@@ -1,6 +1,7 @@
-from machine import ADC, Pin, SPI, I2C
+from machine import ADC, Pin, SPI, I2C, RTC
 import network
 from time import sleep_ms
+from Models.Api import get_time_utc
 
 # Constants
 WIFI_DISCONNECTED = 0
@@ -101,7 +102,7 @@ class RpiPico:
         self.cpu_temperature_reset_stats()
         self.locked = False
 
-    def set_callback_to_pin(self, pin_number, callback, event="HIGH") -> None:
+    def set_callback_to_pin(self, pin_number, callback, event="HIGH"):
         """
         Configura un callback para un evento de cambio de estado en un pin.
 
@@ -135,6 +136,8 @@ class RpiPico:
         })
 
         self.locked = False
+
+        return pin
 
     def disable_all_callbacks (self):
         """
@@ -188,7 +191,7 @@ class RpiPico:
 
         return i2c
 
-    def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0):
+    def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0, baudrate=10000000):
         """
         Crea una instancia SPI para el bus especificado.
 
@@ -210,7 +213,12 @@ class RpiPico:
         sleep_ms(100)
 
         try:
-            spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), miso=Pin(pin_miso))
+            if pin_miso:
+                spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi),
+                          miso=Pin(pin_miso), baudrate=baudrate)
+            else:
+                spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), baudrate=baudrate)
+
             spi_cs = Pin(pin_cs, Pin.OUT)
 
             if bus == 0:
@@ -564,3 +572,45 @@ class RpiPico:
         }
 
         self.read_external_battery()
+
+    def sync_rtc_time(self):
+        """Configures the Raspberry Pi Pico's RTC with the current time obtained from the API."""
+
+        if not self.wifi_is_connected():
+            return None
+
+        time_data = get_time_utc()  # Get the time from the API
+
+        if time_data:
+            year, month, day, hour, minute, second, day_of_week, day_of_year, week_number = time_data
+
+            if self.DEBUG:
+                print(
+                    f"Time obtained from the API: {year}-{month}-{day} {hour}:{minute}:{second}")
+
+            rtc = RTC()
+
+            # Set the RTC (year, month, day, weekday, hour, minute, second, microseconds)
+            rtc.datetime((year, month, day, day_of_week, hour, minute, second, 0))
+
+            print(f"RTC configured to: {year}-{month}-{day} {hour}:{minute}:{second}")
+
+            return True
+        else:
+            print("Failed to sync RTC. No time data available.")
+            return False
+
+    def get_rtc_utc_time(self):
+        """Obtiene la hora UTC desde el RTC del Raspberry Pi Pico."""
+        rtc = RTC()
+
+        # Obtener la fecha y hora del RTC (año, mes, día, día de la semana, hora, minuto, segundo, microsegundos)
+        rtc_time = rtc.datetime()
+
+        # rtc_time es una tupla con la siguiente estructura:
+        # (year, month, day, weekday, hour, minute, second, microsecond)
+
+        year, month, day, weekday, hour, minute, second, _ = rtc_time
+
+        # Como el RTC se configura típicamente en UTC, devolvemos la fecha y hora en formato UTC
+        return year, month, day, hour, minute, second

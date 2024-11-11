@@ -63,6 +63,16 @@ api = Api(controller=rpi, url=env.API_URL, path=env.API_PATH,
           token=env.API_TOKEN, device_id=env.DEVICE_ID, debug=env.DEBUG)
 
 
+# Ejemplo sincronizando reloj RTC
+sleep_ms(1000)
+
+while not rpi.sync_rtc_time():
+
+    if env.DEBUG:
+        print('Intentando Obtener hora RTC de la API')
+
+    sleep_ms(30000)
+
 # Pausa preventiva al desarrollar (ajustar, pero si usas dos hilos puede ahorrar tiempo por bloqueos de hardware ante errores)
 sleep_ms(3000)
 
