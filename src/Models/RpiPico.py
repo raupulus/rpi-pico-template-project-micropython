@@ -2,6 +2,7 @@ from machine import ADC, Pin, SPI, I2C, RTC
 import network
 from time import sleep_ms
 from Models.Api import get_time_utc
+import time
 
 # Constants
 WIFI_DISCONNECTED = 0
@@ -614,3 +615,66 @@ class RpiPico:
 
         # Como el RTC se configura típicamente en UTC, devolvemos la fecha y hora en formato UTC
         return year, month, day, hour, minute, second
+
+    def is_dst_europe_madrid (self, year, month, day):
+        """Comprueba si una fecha está en horario de verano para Europa/Madrid."""
+
+        # Horario de verano: último domingo de marzo a las 01:00 UTC
+        # Horario estándar: último domingo de octubre a las 01:00 UTC
+
+        def last_sunday (year, month):
+            """Obtiene el último domingo de un mes dado."""
+            # Días en el mes
+            days_in_month = [31, 28 + (
+                1 if year % 4 == 0 and (
+                            year % 100 != 0 or year % 400 == 0) else 0),
+                             31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            day = days_in_month[month - 1]
+
+            while True:
+                if \
+                        time.localtime(
+                            time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))[
+                            6] == 6:  # 6 significa domingo
+                    return day
+                day -= 1
+
+        dst_start = last_sunday(year, 3)
+        dst_end = last_sunday(year, 10)
+
+        # Comparar las fechas para determinar si está en horario de verano
+        if (month > 3 and month < 10) or (month == 3 and day >= dst_start) or (
+                month == 10 and day < dst_end):
+            return True
+        return False
+
+    def get_rtc_local_time (self):
+        """Obtiene la hora local desde el RTC del Raspberry Pi Pico."""
+        import time
+
+        rtc = RTC()
+
+        # Obtener la hora UTC del RTC
+        rtc_time = rtc.datetime()
+        year, month, day, weekday, hour, minute, second, _ = rtc_time
+
+        # Convertir la hora UTC a timestamp
+        utc_time_tuple = (year, month, day, hour, minute, second, 0, 0, 0)
+        utc_timestamp = time.mktime(utc_time_tuple)
+
+        # Calcular la diferencia horaria para España/Madrid
+        # CET: UTC+1, CEST: UTC+2
+        if self.is_dst_europe_madrid(year, month, day):
+            offset_seconds = 2 * 3600  # Horario de verano
+        else:
+            offset_seconds = 1 * 3600  # Horario estándar
+
+        local_time_tuple = time.localtime(utc_timestamp + offset_seconds)
+
+        return local_time_tuple[
+               :6]  # Devolver solo año, mes, día, hora, minuto, segundo
+
+    def get_rtc_local_time_string (self):
+        """Obtiene la hora local desde el RTC del Raspberry Pi Pico en formato string."""
+        local_time = self.get_rtc_local_time()
+        return f"{local_time[0]:04d}-{local_time[1]:02d}-{local_time[2]:02d} {local_time[3]:02d}:{local_time[4]:02d}:{local_time[5]:02d}"
