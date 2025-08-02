@@ -672,3 +672,20 @@ class RpiPico:
         """Obtiene la hora local desde el RTC del Raspberry Pi Pico en formato string."""
         local_time = self.get_rtc_local_time()
         return f"{local_time[0]:04d}-{local_time[1]:02d}-{local_time[2]:02d} {local_time[3]:02d}:{local_time[4]:02d}:{local_time[5]:02d}"
+
+    def scanI2C(self):
+        """Realiza un escaneo de i2c."""
+        print('')
+        print('Scan i2c bus...')
+        devices = self.i2c_0.scan()
+
+        if len(devices) == 0:
+            print("No i2c device !")
+        else:
+            print('i2c devices found:',len(devices))
+
+        for device in devices:
+            print("Decimal address: ",device," | Hexa address: ",hex(device))
+
+        print('Scan i2c bus... OK')
+        print('')
