@@ -1,4 +1,4 @@
-from machine import ADC, Pin, SPI, I2C, RTC
+from machine import ADC, Pin, SPI, I2C, RTC, deepsleep
 import network
 import ntptime
 from time import sleep_ms
@@ -689,3 +689,11 @@ class RpiPico:
 
         print('Scan i2c bus... OK')
         print('')
+
+    def deepsleep(self, seconds):
+        """
+        Entra en modo sueño profundo durante los segundos recibidos.
+        Para evitar problemas al entrar en el modo, se necesita desactivar el wireless primero.
+        """
+        self.wifi_disconnect()
+        deepsleep(seconds * 1000)
