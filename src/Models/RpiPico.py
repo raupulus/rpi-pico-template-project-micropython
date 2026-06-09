@@ -366,14 +366,19 @@ class RpiPico:
         :return:
         """
         import ubinascii
-
-        return ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
+        try:
+            wlan = self.wifi if self.wifi else network.WLAN(network.STA_IF)
+            return ubinascii.hexlify(wlan.config('mac'), ':').decode()
+        except Exception:
+            return '00:00:00:00:00:00'
 
     def get_wireless_ssid(self) -> str:
         """
         Devuelve el SSID al que se ha conectado.
         :return:
         """
+        if self.wifi is None:
+            return ''
         return self.wifi.config('essid')
 
     def get_wireless_ip(self) -> str:
@@ -381,6 +386,8 @@ class RpiPico:
         Devuelve la ip de la conexión actual.
         :return:
         """
+        if self.wifi is None:
+            return '0.0.0.0'
         return self.wifi.ifconfig()[0]
 
     def get_wireless_hostname(self) -> str:
@@ -388,6 +395,8 @@ class RpiPico:
         Devuelve el nombre de host en la red.
         :return:
         """
+        if self.wifi is None:
+            return self.hostname
         return self.wifi.config('hostname')
 
     def get_wireless_txpower(self) -> int:
@@ -395,6 +404,8 @@ class RpiPico:
         Devuelve la potencia de transmisión configurada actualmente por la rpi.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.config('txpower')
 
     def get_wireless_rssi(self) -> int:
@@ -402,6 +413,8 @@ class RpiPico:
         Devuelve la potencia de transmisión del router.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.status('rssi')
 
     def get_wireless_channel(self) -> int:
@@ -409,6 +422,8 @@ class RpiPico:
         Devuelve el canal de comunicación con el router.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.config('channel')
 
     def wifi_debug (self) -> None:
@@ -418,6 +433,9 @@ class RpiPico:
         print('Conectado a wifi:', self.wifi_is_connected())
         print('Estado del wi-fi:', self.wifi_status())
         print('Hostname:', self.get_wireless_hostname())
+        if self.wifi is None:
+            print('Wi-Fi no inicializado (WIFI_ENABLED=False)')
+            return
         print('Dirección MAC: ', self.get_wireless_mac())
         print('Dirección IP Wi-fi:', self.get_wireless_ip())
         print('Potencia de transmisión (TXPOWER):', self.get_wireless_txpower())
@@ -445,8 +463,16 @@ class RpiPico:
         # Establezco el nombre del host
         network.hostname(self.hostname)
 
-        # Desactivo el ahorro de energía
-        self.wifi.config(pm=0xa11140)
+        # Desactivo el ahorro de energía (performance mode).
+        # MicroPython 1.24+ expone PM_NONE / PM_PERFORMANCE como constantes;
+        # versiones anteriores usaban el magic number 0xa11140.
+        try:
+            self.wifi.config(pm=self.wifi.PM_NONE)
+        except (AttributeError, TypeError):
+            try:
+                self.wifi.config(pm=0xa11140)
+            except Exception:
+                pass
 
         while not self.wifi_is_connected():
             # Escaneo las redes disponibles
