@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Flash src" type="MicroPythonConfigurationType" factoryName="MicroPython" nameIsGenerated="true" path="$PROJECT_DIR$/src" runReplOnSuccess="yes">
+    <module name="rpi-pico-template-project-micropython" />
+    <method v="2">
+      <option name="MicroPython.StopREPL.Before.Run" enabled="true" />
+    </method>
+  </configuration>
+</component>

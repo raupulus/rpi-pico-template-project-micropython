@@ -114,7 +114,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-src/env.py
 
 # Spyder project settings
 .spyderproject
@@ -144,11 +143,3 @@ dmypy.json
 
 # Systems
 .DS_Store
-
-# Others
-/old_c_project
-/old_python_project
-/docs/planning/
-/docs/auditorias/
-.junie
-.run
