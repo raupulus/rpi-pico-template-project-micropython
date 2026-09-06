@@ -1,28 +1,34 @@
-# Fundamentos: API Raupulus WeatherStation
+# Fundamentos: API Raupulus WeatherStation (V2)
 
-> **Fuentes**: API REST `https://api.raupulus.dev`.  
+> **Fuentes**: Contrato oficial API V2 `https://api.raupulus.dev/api/v2`.  
 > **Fecha de verificación real**: 2026-09-06
 
-## 1. Autenticación
+## 1. Base URL y Envelope Común
 
-El servicio requiere autenticación mediante token de portador (Bearer Token):
-```http
-Authorization: Bearer <API_TOKEN>
-```
+- **Base URL**: `/api/v2` (típicamente `https://api.raupulus.dev/api/v2`).
+- **Formato de respuesta universal**:
+  ```json
+  // Éxito
+  { "success": true, "message": "Operación exitosa", "data": { ... } }
+  // Error
+  { "success": false, "message": "Descripción del error", "errors": { ... } }
+  ```
 
-## 2. Formato de Envío
+## 2. Autenticación y Permisos
 
-- **Protocolo**: HTTPS (TLS 1.2 / 1.3).
-- **Content-Type**: `application/json`.
-- **Accept**: `application/json`.
+- **Mecanismo**: Laravel Sanctum, cabecera `Authorization: Bearer <token>`.
+- **Lecturas (`GET`)**: Públicas, no requieren token.
+- **Escrituras (`POST`)**: Requieren token de dispositivo IoT con la ability `weatherstation:write`, emitido desde `/auth/tokens/devices` y ligado a la estación (`device:{id}`).
 
-## 3. Códigos de Respuesta
+## 3. Códigos de Estado HTTP
 
-- `201 Created`: Telemetría guardada satisfactoriamente en base de datos.
-- `200 OK`: Aceptado.
-- `401 Unauthorized`: Token no proporcionado o inválido.
-- `422 Unprocessable Entity`: Error de validación en los campos del JSON.
-- `500 Internal Server Error`: Fallo interno del backend.
+- `201 Created`: Inserción correcta de lecturas (tanto individual como lote multi-sensor). Devuelve `{"stored": <n>}`.
+- `200 OK`: Peticiones de lectura exitosas.
+- `401 Unauthorized`: Token ausente, caducado o inválido.
+- `403 Forbidden`: Token sin la ability `weatherstation:write` o no asignado a la estación especificada en la ruta.
+- `404 Not Found`: Endpoint inexistente o estación no encontrada (`{"success": false, "message": "API V2 - Endpoint no encontrado"}`).
+- `422 Unprocessable Entity`: Error de validación (clave de sensor desconocida, campos requeridos faltantes, tipos incorrectos).
+- `429 Too Many Requests`: Límite de tasa superado (por defecto 20 peticiones/min para el endpoint de lote).
 
 ---
 > Creado: 2026-09-06 · Última revisión: 2026-09-06

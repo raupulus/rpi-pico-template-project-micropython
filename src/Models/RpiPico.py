@@ -45,6 +45,9 @@ class RpiPico:
     # Instancia que representa el Wireless si estuviera establecido.
     wifi = None
 
+    # Watchdog timer por hardware
+    _wdt = None
+
     # Configuración de Buses I2C.
     i2c0 = None
     i2c1 = None
@@ -103,8 +106,43 @@ class RpiPico:
 
         sleep_ms(100)
 
+        # Inicialización de contadores para uptime
+        try:
+            self._start_tick = time.ticks_ms()
+            self._uptime_sec = 0
+            self._last_uptime_tick = self._start_tick
+        except AttributeError:
+            import time as _t
+            self._start_time_fallback = _t.time()
+            self._uptime_sec = 0
+
         self.cpu_temperature_reset_stats()
         self.locked = False
+
+    def init_wdt(self, timeout_ms: int = 8000) -> bool:
+        """
+        Inicializa el temporizador Watchdog (WDT) por hardware del RP2040.
+        Una vez activado, el sistema se reinicia si no se alimenta periódicamente con feed_wdt().
+        """
+        try:
+            from machine import WDT
+            self._wdt = WDT(timeout=timeout_ms)
+            if self.DEBUG:
+                print('WDT hardware inicializado con timeout', timeout_ms, 'ms')
+            return True
+        except Exception as e:
+            if self.DEBUG:
+                print('WDT no disponible:', e)
+            self._wdt = None
+            return False
+
+    def feed_wdt(self) -> None:
+        """Alimenta el watchdog hardware para evitar reinicios imprevistos."""
+        if self._wdt is not None:
+            try:
+                self._wdt.feed()
+            except Exception:
+                pass
 
     def set_callback_to_pin(self, pin_number, callback, event="HIGH"):
         """
@@ -341,6 +379,58 @@ class RpiPico:
         """
         return self.cpu_temp_stats
 
+    def get_uptime(self) -> int:
+        """
+        Devuelve el tiempo transcurrido en segundos desde el arranque del microcontrolador.
+        Maneja internamente el desbordamiento cíclico de time.ticks_ms().
+        """
+        try:
+            now = time.ticks_ms()
+            diff_ms = time.ticks_diff(now, self._last_uptime_tick)
+            if diff_ms > 0:
+                add_sec = diff_ms // 1000
+                if add_sec > 0:
+                    self._uptime_sec += add_sec
+                    self._last_uptime_tick = time.ticks_add(self._last_uptime_tick, add_sec * 1000)
+            return self._uptime_sec
+        except AttributeError:
+            import time as _t
+            return int(_t.time() - getattr(self, '_start_time_fallback', _t.time()))
+
+    def get_disk_usage(self) -> float:
+        """
+        Devuelve el porcentaje de uso del almacenamiento flash interno (LittleFS).
+        """
+        try:
+            try:
+                import uos as os_module
+            except ImportError:
+                import os as os_module
+            stat = os_module.statvfs('/')
+            total_blocks = stat[2]
+            free_blocks = stat[3]
+            if total_blocks > 0:
+                used_blocks = total_blocks - free_blocks
+                return round((used_blocks / total_blocks) * 100.0, 1)
+        except Exception:
+            pass
+        return 0.0
+
+    def get_ram_usage(self) -> float:
+        """
+        Devuelve el porcentaje de uso de la memoria RAM (heap) en MicroPython.
+        """
+        try:
+            import gc
+            alloc = gc.mem_alloc()
+            free = gc.mem_free()
+            total = alloc + free
+            if total > 0:
+                return round((alloc / total) * 100.0, 1)
+        except Exception:
+            pass
+        return 0.0
+
     def wifi_status (self) -> int:
         """
         Obtiene el estado de la conexión Wi-Fi.
@@ -443,29 +533,36 @@ class RpiPico:
         print('Canal de Wi-fi: ', self.get_wireless_channel())
         print('RSSI: ', self.get_wireless_rssi())
 
-    def wifi_connect (self, ssid=None, password=None) -> bool:
+    def wifi_connect (self, ssid=None, password=None, max_retries: int = 3) -> bool:
         """
-        Intenta conectar a Wi-Fi con las credenciales dadas.
+        Intenta conectar a Wi-Fi con las credenciales dadas de forma acotada (no bloqueante).
 
         Args:
             ssid (str): ID de red para la conexión Wi-Fi.
             password (str): Contraseña para la conexión Wi-Fi.
+            max_retries (int): Número máximo de intentos antes de desistir (evita bucles infinitos).
 
         Retorno:
-            bool: True si se logra conectarse, False en caso contrario.
+            bool: True si se logra conectar, False en caso contrario.
         """
         if ssid is None and password is None:
             ssid, password = self.SSID, self.PASSWORD
 
-        self.wifi = network.WLAN(network.STA_IF)
-        self.wifi.active(True)
+        self.feed_wdt()
+
+        if self.wifi is None:
+            self.wifi = network.WLAN(network.STA_IF)
+
+        if not self.wifi.active():
+            self.wifi.active(True)
 
         # Establezco el nombre del host
-        network.hostname(self.hostname)
+        try:
+            network.hostname(self.hostname)
+        except Exception:
+            pass
 
         # Desactivo el ahorro de energía (performance mode).
-        # MicroPython 1.24+ expone PM_NONE / PM_PERFORMANCE como constantes;
-        # versiones anteriores usaban el magic number 0xa11140.
         try:
             self.wifi.config(pm=self.wifi.PM_NONE)
         except (AttributeError, TypeError):
@@ -474,29 +571,64 @@ class RpiPico:
             except Exception:
                 pass
 
+        attempt = 0
         while not self.wifi_is_connected():
-            # Escaneo las redes disponibles
-            available_ssids = self.wifi.scan()
-            available_ssids = [ap[0].decode('utf-8') for ap in available_ssids]
+            attempt += 1
+            if max_retries and attempt > max_retries:
+                if self.DEBUG:
+                    print('Wi-Fi: límite de reintentos alcanzado (', max_retries, ')')
+                return False
+
+            self.feed_wdt()
+
+            # Escaneo las redes disponibles protegiendo posibles fallos de radio o caracteres extraños
+            available_ssids = []
+            try:
+                raw_aps = self.wifi.scan()
+                available_ssids = [ap[0].decode('utf-8', 'ignore') for ap in raw_aps if ap and len(ap) > 0]
+            except Exception as e:
+                if self.DEBUG:
+                    print('Wi-Fi: error en scan(), reiniciando interfaz:', e)
+                try:
+                    self.wifi.active(False)
+                    sleep_ms(200)
+                    self.wifi.active(True)
+                except Exception:
+                    pass
+                sleep_ms(1000)
+                continue
 
             # Si la red principal se encuentra disponible, intenta conectar a ella
             if self.SSID in available_ssids:
-                self.wifi.connect(self.SSID, self.PASSWORD)
+                try:
+                    self.wifi.connect(self.SSID, self.PASSWORD)
+                except Exception as e:
+                    if self.DEBUG:
+                        print('Wi-Fi: error al invocar connect():', e)
             else:
-                # Si no esta la red principal, intenta conectar a las redes secundarias disponibles
-                for ap in self.alternatives_ap:
-                    if ap['ssid'] in available_ssids:
-                        self.wifi.connect(ap['ssid'], ap['password'])
+                # Si no está la red principal, intenta conectar a las redes secundarias
+                if self.alternatives_ap:
+                    for ap in self.alternatives_ap:
+                        if ap.get('ssid') in available_ssids:
+                            try:
+                                self.wifi.connect(ap['ssid'], ap['password'])
+                                break
+                            except Exception:
+                                pass
 
-            sleep_ms(1000)
+            # Espera activa con comprobación periódica y alimentación de WDT (hasta ~6s)
+            for _ in range(12):
+                sleep_ms(500)
+                self.feed_wdt()
+                if self.wifi_is_connected():
+                    break
 
             if self.wifi_is_connected():
                 if self.DEBUG:
                     self.wifi_debug()
-
                 return True
 
-        return False
+        return self.wifi_is_connected()
 
     def wireless_info (self):
         info_client = [

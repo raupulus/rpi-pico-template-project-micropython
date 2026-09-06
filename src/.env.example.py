@@ -7,12 +7,12 @@ ALTERNATIVES_AP = [
     # {"ssid": "RED_RESPALDO", "password": "PASSWORD_RESPALDO"},
 ]
 
-# Datos para la API
-API_URL = "https://api.raupulus.dev/api"
-API_PATH = "weatherstation/v1/generic/add/json"
+# Datos para la API (Contrato API V2)
+API_URL = "https://api.example.es/api/v2"
+API_PATH = "weather-stations/{station}/readings"
 API_TOKEN = "TU_API_BEARER_TOKEN"
 
-# Identificador del dispositivo en la API
+# Identificador del dispositivo en la API (ID numérico de la estación)
 DEVICE_ID = 1
 
 # Indica si está en modo debug la aplicación
@@ -26,6 +26,10 @@ API_ENABLED = True
 
 # Tiempo máximo (ms) esperando datos de todos los sensores antes de subir parcial.
 PARTIAL_UPLOAD_TIMEOUT_MS = 90000  # 90 segundos
+
+# ---------------- RESILIENCIA Y WATCHDOG ----------------
+# Habilita el temporizador de reinicio automático por hardware ante bloqueos (WDT)
+ENABLE_WDT = True
 
 # ---------------- CC1101 (868 MHz) ----------------
 # Habilita el uso del receptor CC1101

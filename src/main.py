@@ -489,7 +489,11 @@ def _rotate_batch_if_needed(now_ms: int):
         write_idx = 0
 
 
+core1_last_alive_ms = ticks_ms()
+
+
 def processor_thread(_):
+    global core1_last_alive_ms
     """Segundo hilo: procesa lotes preparados por el hilo principal.
     - Decodifica todas las tramas del lote listo.
     - Si encuentra un conjunto completo (temp+hum+viento+lluvia), prepara payload
@@ -526,6 +530,7 @@ def processor_thread(_):
     last_ids_print_ms = ticks_ms() + 15000
 
     while True:
+        core1_last_alive_ms = ticks_ms()
         # Elegir lote listo
         take_idx = -1
         count = 0
@@ -793,7 +798,53 @@ def service_heartbeat():
         heartbeat_next_ms = now + HEARTBEAT_MS
 
 
+# Inicializar Watchdog Hardware (timeout 8000ms) para autorrecuperacion
+ENABLE_WDT = getattr(env, 'ENABLE_WDT', True)
+if ENABLE_WDT and hasattr(rpi, 'init_wdt'):
+    rpi.init_wdt(timeout_ms=8000)
+
 while True:
+    # 0) Alimentar Watchdog por hardware
+    if hasattr(rpi, 'feed_wdt'):
+        rpi.feed_wdt()
+
+    # 0.1) Supervision de salud de Core 1 cada 15 segundos
+    if 'last_core1_check_ms' not in globals():
+        last_core1_check_ms = ticks_ms()
+    now_c1 = ticks_ms()
+    if ticks_diff(now_c1, last_core1_check_ms) >= 15000:
+        last_core1_check_ms = now_c1
+        if 'core1_last_alive_ms' in globals() and ticks_diff(now_c1, core1_last_alive_ms) > 120000:
+            if DEBUG:
+                print('CRITICO: Core 1 bloqueado (>120s sin pulso). Reiniciando microcontrolador...')
+            import machine
+            machine.reset()
+
+    # 0.2) Recoleccion periodica de basura en el heap (cada 30 segundos)
+    if 'next_gc_ms' not in globals():
+        next_gc_ms = ticks_ms() + 30000
+    now_gc = ticks_ms()
+    if ticks_diff(now_gc, next_gc_ms) >= 0:
+        next_gc_ms = now_gc + 30000
+        try:
+            gc.collect()
+        except Exception:
+            pass
+
+    # 0.3) Sincronizacion horaria periodica RTC cada 24 horas
+    if 'next_rtc_sync_ms' not in globals():
+        next_rtc_sync_ms = ticks_ms() + (24 * 3600 * 1000)
+    now_rtc = ticks_ms()
+    if WIFI_ENABLED and ticks_diff(now_rtc, next_rtc_sync_ms) >= 0:
+        next_rtc_sync_ms = now_rtc + (24 * 3600 * 1000)
+        try:
+            if DEBUG:
+                print('Sincronizacion periodica RTC...')
+            rpi.sync_rtc_time()
+        except Exception as e:
+            if DEBUG:
+                print('Error en sincronizacion periodica de RTC:', e)
+
     # Inicializar agregador de lecturas una sola vez
     if 'state' not in globals():
         state = {

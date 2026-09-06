@@ -61,4 +61,17 @@ Implementar un cálculo directo por reglas de calendario para el horario de vera
 - La Raspberry Pi Pico W obtiene la hora UTC desde servidores NTP. Para registrar o presentar la hora local correcta en logs sin depender de llamadas a servicios web de geolocalización, una función de cálculo matemático de 15 líneas proporciona la hora local exacta sin sobrecoste.
 
 ---
+
+## 6. Estrategia de Resiliencia 24/7 y Tolerancia a Fallos
+
+### Decisión
+Incorporar Watchdog Hardware (`machine.WDT` a 8.0 segundos), reconexión Wi-Fi acotada (`max_retries=3`), timeout global en sockets (6.0 segundos), recolección periódica de basura cada 30 segundos y supervisión mutua entre núcleos (Core 0 resetea si Core 1 no da pulso en >120 segundos).
+
+### Motivo
+- En despliegues remotos desatendidos (ej: tejados, mástiles o altillos), un bloqueo por caída temporal del router doméstico, socket colgado en handshake TLS o desbordamiento silencioso del hilo secundario exigiría apagar y encender manualmente el transformador eléctrico.
+- Con timeout de sockets a 6.0s y WDT a 8.0s, los fallos de red generan excepciones capturadas de forma limpia antes de que venza el perro guardián.
+- La reconexión Wi-Fi no es un bucle infinito bloqueante; desiste y permite continuar la operativa de radio local y alimentación del watchdog.
+- Si ocurre un congelamiento real o el Core 1 fallece silenciosamente, el hardware reinicia automáticamente el sistema en segundos.
+
+---
 > Creado: 2026-09-06 · Última revisión: 2026-09-06

@@ -7,10 +7,10 @@ Módulo central de configuración y parametrización de entorno del firmware en 
 ### Qué hace
 - Declara las variables de entorno utilizadas por todos los módulos del proyecto en tiempo de arranque y ejecución.
 - Define las credenciales de red inalámbrica Wi-Fi y nombres de host.
-- Define los endpoints y credenciales de acceso para la API REST receptora de mediciones.
+- Define los endpoints y credenciales de acceso para la API REST V2 receptora de mediciones.
 - Configura el mapeo de pines GPIO para los buses SPI, líneas de interrupción de radio y LEDs de señalización.
 - Configura los parámetros de radiofrecuencia (frecuencia portadora 868.3 MHz, filtros de ancho de banda, longitud de paquete CC1101).
-- Define flags de control operativo (`DEBUG`, `WIFI_ENABLED`, `API_ENABLED`, `FIND_STATION_IDS`, etc.).
+- Define flags de control operativo (`DEBUG`, `WIFI_ENABLED`, `API_ENABLED`, `ENABLE_WDT`, `FIND_STATION_IDS`, etc.).
 - Gestiona listas blancas y negras de identificadores de estación (`SENSOR_IDS_INC`, `SENSOR_IDS_EXC`).
 
 ### Qué NO hace
@@ -19,7 +19,7 @@ Módulo central de configuración y parametrización de entorno del firmware en 
 
 ## Modelo de datos
 
-### Resumen de variables declaradas
+### Resumen de variables declaradas (Contrato API V2)
 ```python
 # Conectividad Wi-Fi
 HOSTNAME = "RpiPicoW-Bresser-Scanner"
@@ -28,9 +28,12 @@ AP_PASS = "..."
 ALTERNATIVES_AP = []
 WIFI_ENABLED = True
 
-# API REST
-API_URL = "https://api.raupulus.dev/api"
-API_PATH = "weatherstation/v1/generic/add/json"
+# Resiliencia y Watchdog
+ENABLE_WDT = True
+
+# API REST V2
+API_URL = "https://api.raupulus.dev/api/v2"
+API_PATH = "weather-stations/{station}/readings"
 API_TOKEN = "..."
 DEVICE_ID = 18
 API_ENABLED = True
@@ -102,7 +105,7 @@ Todas las variables del proyecto residen en este archivo. Consultar la tabla en 
 ## Trampas conocidas
 
 - **Gitignore activo**: `src/env.py` y `env.py` están en `.gitignore` para proteger contraseñas y tokens.
-- **Falta de plantilla versionada**: Antes de este protocolo, se referenciaba `.env.example.py`, el cual no existía en el repositorio (`⚠️ sin verificar`). Debe mantenerse siempre un archivo plantilla con valores ficticios.
+- **Falta de plantilla versionada**: Resuelto mediante el mantenimiento obligatorio de [`src/.env.example.py`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/src/.env.example.py).
 
 ## Tests que lo cubren
 
@@ -110,7 +113,7 @@ Todas las variables del proyecto residen en este archivo. Consultar la tabla en 
 
 ## Pendiente real
 
-- [ ] Generar un archivo `src/.env.example.py` con credenciales ofuscadas para permitir una clonación limpia del repositorio.
+- [x] Generar un archivo `src/.env.example.py` con credenciales ofuscadas para permitir una clonación limpia del repositorio.
 
 ---
 > Creado: 2026-09-06 · Última revisión: 2026-09-06

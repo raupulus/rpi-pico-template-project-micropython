@@ -5,13 +5,16 @@ Punto de entrada y orquestador del sistema en MicroPython sobre Raspberry Pi Pic
 ## Qué hace y qué NO hace
 
 ### Qué hace
-- Inicializa los subsistemas de hardware (Wi-Fi, SPI bus 0, receptor CC1101, RTC vía NTP y LEDs).
+- Inicializa los subsistemas de hardware (Wi-Fi, SPI bus 0, receptor CC1101, RTC vía NTP, temporizador Watchdog WDT y LEDs).
 - Ejecuta una arquitectura concurrente de dos núcleos:
-  - **Core 0 (hilo principal)**: Bombeo rápido del FIFO del CC1101, volcado en memoria fija en doble buffer (`bufA`/`bufB`), alternancia de lotes por tamaño (`BATCH_SIZE`) o ventana de tiempo (`BATCH_WINDOW_MS`), gestión de peticiones HTTP a la API y servicio no bloqueante de parpadeo de LEDs.
-  - **Core 1 (hilo de procesado `processor_thread`)**: Espera lotes listos, decodifica tramas Bresser (6-en-1 / 5-en-1), agrega mediciones climáticas y gestiona timeouts de datos parciales (`PARTIAL_UPLOAD_TIMEOUT_MS`).
+  - **Core 0 (hilo principal)**: Bombeo rápido del FIFO del CC1101, volcado en memoria fija en doble buffer (`bufA`/`bufB`), alternancia de lotes por tamaño (`BATCH_SIZE`) o ventana de tiempo (`BATCH_WINDOW_MS`), gestión de peticiones HTTP a la API REST V2, supervisión del Watchdog, monitorización de actividad del Core 1, recolección periódica de basura en heap y servicio no bloqueante de parpadeo de LEDs.
+  - **Core 1 (hilo de procesado `processor_thread`)**: Espera lotes listos, decodifica tramas Bresser (6-en-1 / 5-en-1), actualiza el latido de vida (`core1_last_alive_ms`), agrega mediciones climáticas y gestiona timeouts de datos parciales (`PARTIAL_UPLOAD_TIMEOUT_MS`).
 - Gestiona eventos hardware mediante interrupción en flanco de bajada de `GDO0` desacoplada con `micropython.schedule(_on_gdo0_scheduled)`.
 - Controla los estados de los LEDs visuales (`led_onboard`, `led_on`, `led_read`, `led_alt1`, `led_alt2`).
-- Ejecuta recolección de basura periódica (`gc.collect()`).
+- Ejecuta recolección de basura periódica (`gc.collect()` cada 30 segundos).
+- Resincroniza periódicamente el reloj interno RTC por NTP cada 24 horas.
+- Supervisa la salud del hilo secundario en Core 1: si no emite pulso en >120 segundos, fuerza el reinicio por hardware (`machine.reset()`).
+- Inicializa y alimenta el Watchdog hardware (`machine.WDT` con 8000 ms) para autorrecuperación total ante bloqueos no controlados.
 
 ### Qué NO hace
 - No implementa la lógica de decodificación de tramas por radio (delegado en `WeatherSensor.py`).
@@ -49,8 +52,10 @@ agg = {
 }
 ```
 
-### Payload saliente hacia la API
+### Payload saliente hacia la API (Contrato V2)
 ```python
+# Mapeado por Api.py en formato multi-sensor:
+# POST /weather-stations/{station}/readings
 payload = {
     'temperature': float,
     'humidity': float,
@@ -77,8 +82,9 @@ payload = {
 7. Instanciación del cliente `Api`.
 8. Sincronización horaria RTC por NTP (`rpi.sync_rtc_time()`).
 9. Configuración opcional de IRQ en pin `GDO0` (`setup_gdo0_irq()`).
-10. Lanzamiento del hilo en Core 1 (`_thread.start_new_thread(processor_thread, (None,))`).
-11. Entrada al bucle infinito en Core 0.
+10. Inicialización del Watchdog Timer por hardware (`rpi.init_wdt(timeout_ms=8000)` si `ENABLE_WDT=True`).
+11. Lanzamiento del hilo en Core 1 (`_thread.start_new_thread(processor_thread, (None,))`).
+12. Entrada al bucle infinito en Core 0.
 
 ### 2. Flujo de Recepción y Subida
 ```
@@ -88,7 +94,7 @@ payload = {
 [Buffer activo bufA/bufB]
      │ (al llenar BATCH_SIZE o expirar BATCH_WINDOW_MS)
      ▼
-[Core 1: processor_thread]
+[Core 1: processor_thread] (actualiza core1_last_alive_ms)
      │ ws.decode()
      ▼
 [Agregador de variables climáticas]
@@ -112,16 +118,16 @@ payload = {
 ## Dependencias en ambos sentidos
 
 ### Consume de
-- `machine.Pin`: Control de pines GPIO e interrupciones hardware.
+- `machine.Pin`, `machine.reset`: Control de pines GPIO, interrupciones hardware y reinicio forzado.
 - `_thread`: Multihilo en los dos cores del RP2040 con `allocate_lock()`.
 - `micropython`: Buffer de excepciones y planificación `schedule()`.
-- `time` (`sleep_ms`, `ticks_ms`, `ticks_diff`): Temporización segura ante desbordamiento de 32 bits.
-- `gc`: Gestión manual y recolección de heap.
+- `time` (`sleep_ms`, `ticks_ms`, `ticks_diff`): Temporización segura ante desbordamiento de 30/32 bits.
+- `gc`: Gestión manual y recolección periódica del heap (`gc.collect()`).
 - `urandom`: Generación de retardos aleatorios para animación de LEDs.
 - `env`: Carga de todas las variables de configuración del sistema.
-- `Models.RpiPico.RpiPico`: Abstracción de conectividad, SPI, RTC y sensores internos.
+- `Models.RpiPico.RpiPico`: Abstracción de conectividad, WDT, SPI, RTC y sensores internos.
 - `Models.WeatherSensor.WeatherSensor`: Capa de radio y decodificación.
-- `Models.Api.Api`: Cliente de subida REST.
+- `Models.Api.Api`: Cliente de subida REST V2 con telemetría de hardware.
 
 ### Es consumido por
 - MicroPython runtime (arranque directo del sistema).
@@ -133,6 +139,7 @@ payload = {
 | `DEBUG` | `False` | Activa logs diagnósticos por consola REPL |
 | `WIFI_ENABLED` | `True` | Permite o desactiva la inicialización inalámbrica |
 | `API_ENABLED` | `True` | Habilita el envío HTTP de los payloads |
+| `ENABLE_WDT` | `True` | Habilita el Watchdog Timer hardware con timeout de 8000 ms |
 | `PARTIAL_UPLOAD_TIMEOUT_MS` | `90000` | Tiempo de espera antes de subir mediciones parciales incompletas |
 | `BATCH_SIZE` | `50` | Número máximo de paquetes antes de rotar lote hacia Core 1 |
 | `BATCH_WINDOW_MS` | `60000` | Tiempo máximo para rotar un lote si tiene paquetes acumulados |
@@ -150,6 +157,7 @@ payload = {
 - **SPI en ISR Prohibido**: Intentar comunicarse por SPI dentro de `_gdo0_irq` bloqueará el microcontrolador. Por ello se delega exclusivamente con `micropython.schedule()`.
 - **Doble Buffer Preasignado**: Los buffers `bufA` y `bufB` se instancian al arranque como listas de `bytearray` fijos. No crear arrays dentro del bucle de radio para evitar fragmentar el heap de MicroPython.
 - **Pausa de radio durante HTTP**: Durante la llamada bloqueante `api.send_to_api()`, el Core 0 no bombea la radio. El CC1101 continuará recibiendo en su FIFO hardware (64 bytes); al regresar del POST se realiza recuperación automática de estado.
+- **Ventana de Watchdog (WDT)**: Con WDT activado (8.0s), cualquier operación de red prolongada o bucle interno debe invocar `rpi.feed_wdt()` periódicamente para prevenir reinicios del silicio.
 
 ## Tests que lo cubren
 
