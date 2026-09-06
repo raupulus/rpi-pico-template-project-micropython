@@ -1,6 +1,8 @@
-from machine import ADC, Pin, SPI, I2C
+from machine import ADC, Pin, SPI, I2C, RTC, deepsleep
 import network
+import ntptime
 from time import sleep_ms
+import time
 
 # Constants
 WIFI_DISCONNECTED = 0
@@ -43,6 +45,9 @@ class RpiPico:
     # Instancia que representa el Wireless si estuviera establecido.
     wifi = None
 
+    # Watchdog timer por hardware
+    _wdt = None
+
     # Configuración de Buses I2C.
     i2c0 = None
     i2c1 = None
@@ -58,6 +63,9 @@ class RpiPico:
 
     # Almaceno batería externa si la configuramos
     external_battery = None
+
+    # Indica si se ha sincronizado el RTC interno
+    is_rtc_set = False
 
     def __init__ (self, ssid=None, password=None, debug=False, country="ES",
                   alternatives_ap=None, hostname="Rpi-Pico-W"):
@@ -98,10 +106,45 @@ class RpiPico:
 
         sleep_ms(100)
 
+        # Inicialización de contadores para uptime
+        try:
+            self._start_tick = time.ticks_ms()
+            self._uptime_sec = 0
+            self._last_uptime_tick = self._start_tick
+        except AttributeError:
+            import time as _t
+            self._start_time_fallback = _t.time()
+            self._uptime_sec = 0
+
         self.cpu_temperature_reset_stats()
         self.locked = False
 
-    def set_callback_to_pin(self, pin_number, callback, event="HIGH") -> None:
+    def init_wdt(self, timeout_ms: int = 8000) -> bool:
+        """
+        Inicializa el temporizador Watchdog (WDT) por hardware del RP2040.
+        Una vez activado, el sistema se reinicia si no se alimenta periódicamente con feed_wdt().
+        """
+        try:
+            from machine import WDT
+            self._wdt = WDT(timeout=timeout_ms)
+            if self.DEBUG:
+                print('WDT hardware inicializado con timeout', timeout_ms, 'ms')
+            return True
+        except Exception as e:
+            if self.DEBUG:
+                print('WDT no disponible:', e)
+            self._wdt = None
+            return False
+
+    def feed_wdt(self) -> None:
+        """Alimenta el watchdog hardware para evitar reinicios imprevistos."""
+        if self._wdt is not None:
+            try:
+                self._wdt.feed()
+            except Exception:
+                pass
+
+    def set_callback_to_pin(self, pin_number, callback, event="HIGH"):
         """
         Configura un callback para un evento de cambio de estado en un pin.
 
@@ -135,6 +178,8 @@ class RpiPico:
         })
 
         self.locked = False
+
+        return pin
 
     def disable_all_callbacks (self):
         """
@@ -188,7 +233,7 @@ class RpiPico:
 
         return i2c
 
-    def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0):
+    def set_spi(self, pin_sck, pin_mosi, pin_miso, pin_cs, bus=0, baudrate=10000000):
         """
         Crea una instancia SPI para el bus especificado.
 
@@ -210,7 +255,12 @@ class RpiPico:
         sleep_ms(100)
 
         try:
-            spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), miso=Pin(pin_miso))
+            if pin_miso:
+                spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi),
+                          miso=Pin(pin_miso), baudrate=baudrate)
+            else:
+                spi = SPI(bus, sck=Pin(pin_sck), mosi=Pin(pin_mosi), baudrate=baudrate)
+
             spi_cs = Pin(pin_cs, Pin.OUT)
 
             if bus == 0:
@@ -329,6 +379,58 @@ class RpiPico:
         """
         return self.cpu_temp_stats
 
+    def get_uptime(self) -> int:
+        """
+        Devuelve el tiempo transcurrido en segundos desde el arranque del microcontrolador.
+        Maneja internamente el desbordamiento cíclico de time.ticks_ms().
+        """
+        try:
+            now = time.ticks_ms()
+            diff_ms = time.ticks_diff(now, self._last_uptime_tick)
+            if diff_ms > 0:
+                add_sec = diff_ms // 1000
+                if add_sec > 0:
+                    self._uptime_sec += add_sec
+                    self._last_uptime_tick = time.ticks_add(self._last_uptime_tick, add_sec * 1000)
+            return self._uptime_sec
+        except AttributeError:
+            import time as _t
+            return int(_t.time() - getattr(self, '_start_time_fallback', _t.time()))
+
+    def get_disk_usage(self) -> float:
+        """
+        Devuelve el porcentaje de uso del almacenamiento flash interno (LittleFS).
+        """
+        try:
+            try:
+                import uos as os_module
+            except ImportError:
+                import os as os_module
+            stat = os_module.statvfs('/')
+            total_blocks = stat[2]
+            free_blocks = stat[3]
+            if total_blocks > 0:
+                used_blocks = total_blocks - free_blocks
+                return round((used_blocks / total_blocks) * 100.0, 1)
+        except Exception:
+            pass
+        return 0.0
+
+    def get_ram_usage(self) -> float:
+        """
+        Devuelve el porcentaje de uso de la memoria RAM (heap) en MicroPython.
+        """
+        try:
+            import gc
+            alloc = gc.mem_alloc()
+            free = gc.mem_free()
+            total = alloc + free
+            if total > 0:
+                return round((alloc / total) * 100.0, 1)
+        except Exception:
+            pass
+        return 0.0
+
     def wifi_status (self) -> int:
         """
         Obtiene el estado de la conexión Wi-Fi.
@@ -354,14 +456,19 @@ class RpiPico:
         :return:
         """
         import ubinascii
-
-        return ubinascii.hexlify(network.WLAN().config('mac'), ':').decode()
+        try:
+            wlan = self.wifi if self.wifi else network.WLAN(network.STA_IF)
+            return ubinascii.hexlify(wlan.config('mac'), ':').decode()
+        except Exception:
+            return '00:00:00:00:00:00'
 
     def get_wireless_ssid(self) -> str:
         """
         Devuelve el SSID al que se ha conectado.
         :return:
         """
+        if self.wifi is None:
+            return ''
         return self.wifi.config('essid')
 
     def get_wireless_ip(self) -> str:
@@ -369,6 +476,8 @@ class RpiPico:
         Devuelve la ip de la conexión actual.
         :return:
         """
+        if self.wifi is None:
+            return '0.0.0.0'
         return self.wifi.ifconfig()[0]
 
     def get_wireless_hostname(self) -> str:
@@ -376,6 +485,8 @@ class RpiPico:
         Devuelve el nombre de host en la red.
         :return:
         """
+        if self.wifi is None:
+            return self.hostname
         return self.wifi.config('hostname')
 
     def get_wireless_txpower(self) -> int:
@@ -383,6 +494,8 @@ class RpiPico:
         Devuelve la potencia de transmisión configurada actualmente por la rpi.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.config('txpower')
 
     def get_wireless_rssi(self) -> int:
@@ -390,6 +503,8 @@ class RpiPico:
         Devuelve la potencia de transmisión del router.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.status('rssi')
 
     def get_wireless_channel(self) -> int:
@@ -397,6 +512,8 @@ class RpiPico:
         Devuelve el canal de comunicación con el router.
         :return:
         """
+        if self.wifi is None:
+            return 0
         return self.wifi.config('channel')
 
     def wifi_debug (self) -> None:
@@ -406,6 +523,9 @@ class RpiPico:
         print('Conectado a wifi:', self.wifi_is_connected())
         print('Estado del wi-fi:', self.wifi_status())
         print('Hostname:', self.get_wireless_hostname())
+        if self.wifi is None:
+            print('Wi-Fi no inicializado (WIFI_ENABLED=False)')
+            return
         print('Dirección MAC: ', self.get_wireless_mac())
         print('Dirección IP Wi-fi:', self.get_wireless_ip())
         print('Potencia de transmisión (TXPOWER):', self.get_wireless_txpower())
@@ -413,52 +533,102 @@ class RpiPico:
         print('Canal de Wi-fi: ', self.get_wireless_channel())
         print('RSSI: ', self.get_wireless_rssi())
 
-    def wifi_connect (self, ssid=None, password=None) -> bool:
+    def wifi_connect (self, ssid=None, password=None, max_retries: int = 3) -> bool:
         """
-        Intenta conectar a Wi-Fi con las credenciales dadas.
+        Intenta conectar a Wi-Fi con las credenciales dadas de forma acotada (no bloqueante).
 
         Args:
             ssid (str): ID de red para la conexión Wi-Fi.
             password (str): Contraseña para la conexión Wi-Fi.
+            max_retries (int): Número máximo de intentos antes de desistir (evita bucles infinitos).
 
         Retorno:
-            bool: True si se logra conectarse, False en caso contrario.
+            bool: True si se logra conectar, False en caso contrario.
         """
         if ssid is None and password is None:
             ssid, password = self.SSID, self.PASSWORD
 
-        self.wifi = network.WLAN(network.STA_IF)
-        self.wifi.active(True)
+        self.feed_wdt()
+
+        if self.wifi is None:
+            self.wifi = network.WLAN(network.STA_IF)
+
+        if not self.wifi.active():
+            self.wifi.active(True)
 
         # Establezco el nombre del host
-        network.hostname(self.hostname)
+        try:
+            network.hostname(self.hostname)
+        except Exception:
+            pass
 
-        # Desactivo el ahorro de energía
-        self.wifi.config(pm=0xa11140)
+        # Desactivo el ahorro de energía (performance mode).
+        try:
+            self.wifi.config(pm=self.wifi.PM_NONE)
+        except (AttributeError, TypeError):
+            try:
+                self.wifi.config(pm=0xa11140)
+            except Exception:
+                pass
 
+        attempt = 0
         while not self.wifi_is_connected():
-            # Escaneo las redes disponibles
-            available_ssids = self.wifi.scan()
-            available_ssids = [ap[0].decode('utf-8') for ap in available_ssids]
+            attempt += 1
+            if max_retries and attempt > max_retries:
+                if self.DEBUG:
+                    print('Wi-Fi: límite de reintentos alcanzado (', max_retries, ')')
+                return False
+
+            self.feed_wdt()
+
+            # Escaneo las redes disponibles protegiendo posibles fallos de radio o caracteres extraños
+            available_ssids = []
+            try:
+                raw_aps = self.wifi.scan()
+                available_ssids = [ap[0].decode('utf-8', 'ignore') for ap in raw_aps if ap and len(ap) > 0]
+            except Exception as e:
+                if self.DEBUG:
+                    print('Wi-Fi: error en scan(), reiniciando interfaz:', e)
+                try:
+                    self.wifi.active(False)
+                    sleep_ms(200)
+                    self.wifi.active(True)
+                except Exception:
+                    pass
+                sleep_ms(1000)
+                continue
 
             # Si la red principal se encuentra disponible, intenta conectar a ella
             if self.SSID in available_ssids:
-                self.wifi.connect(self.SSID, self.PASSWORD)
+                try:
+                    self.wifi.connect(self.SSID, self.PASSWORD)
+                except Exception as e:
+                    if self.DEBUG:
+                        print('Wi-Fi: error al invocar connect():', e)
             else:
-                # Si no esta la red principal, intenta conectar a las redes secundarias disponibles
-                for ap in self.alternatives_ap:
-                    if ap['ssid'] in available_ssids:
-                        self.wifi.connect(ap['ssid'], ap['password'])
+                # Si no está la red principal, intenta conectar a las redes secundarias
+                if self.alternatives_ap:
+                    for ap in self.alternatives_ap:
+                        if ap.get('ssid') in available_ssids:
+                            try:
+                                self.wifi.connect(ap['ssid'], ap['password'])
+                                break
+                            except Exception:
+                                pass
 
-            sleep_ms(1000)
+            # Espera activa con comprobación periódica y alimentación de WDT (hasta ~6s)
+            for _ in range(12):
+                sleep_ms(500)
+                self.feed_wdt()
+                if self.wifi_is_connected():
+                    break
 
             if self.wifi_is_connected():
                 if self.DEBUG:
                     self.wifi_debug()
-
                 return True
 
-        return False
+        return self.wifi_is_connected()
 
     def wireless_info (self):
         info_client = [
@@ -564,3 +734,124 @@ class RpiPico:
         }
 
         self.read_external_battery()
+
+    def sync_rtc_time (self):
+        """Configures the Raspberry Pi Pico's RTC with the current time obtained from the API."""
+
+        if not self.wifi_is_connected():
+            return False
+
+        try:
+            ntptime.settime()
+
+            self.is_rtc_set = True
+
+            return True
+        except Exception as e:
+            if self.DEBUG:
+                print(f"Error sync time: {e}")
+
+            return False
+
+    def get_rtc_utc_time(self):
+        """Obtiene la hora UTC desde el RTC del Raspberry Pi Pico."""
+        rtc = RTC()
+
+        # Obtener la fecha y hora del RTC (año, mes, día, día de la semana, hora, minuto, segundo, microsegundos)
+        rtc_time = rtc.datetime()
+
+        # rtc_time es una tupla con la siguiente estructura:
+        # (year, month, day, weekday, hour, minute, second, microsecond)
+
+        year, month, day, weekday, hour, minute, second, _ = rtc_time
+
+        # Como el RTC se configura típicamente en UTC, devolvemos la fecha y hora en formato UTC
+        return year, month, day, hour, minute, second
+
+    def is_dst_europe_madrid (self, year, month, day):
+        """Comprueba si una fecha está en horario de verano para Europa/Madrid."""
+
+        # Horario de verano: último domingo de marzo a las 01:00 UTC
+        # Horario estándar: último domingo de octubre a las 01:00 UTC
+
+        def last_sunday (year, month):
+            """Obtiene el último domingo de un mes dado."""
+            # Días en el mes
+            days_in_month = [31, 28 + (
+                1 if year % 4 == 0 and (
+                            year % 100 != 0 or year % 400 == 0) else 0),
+                             31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            day = days_in_month[month - 1]
+
+            while True:
+                if \
+                        time.localtime(
+                            time.mktime((year, month, day, 0, 0, 0, 0, 0, 0)))[
+                            6] == 6:  # 6 significa domingo
+                    return day
+                day -= 1
+
+        dst_start = last_sunday(year, 3)
+        dst_end = last_sunday(year, 10)
+
+        # Comparar las fechas para determinar si está en horario de verano
+        if (month > 3 and month < 10) or (month == 3 and day >= dst_start) or (
+                month == 10 and day < dst_end):
+            return True
+        return False
+
+    def get_rtc_local_time (self):
+        """Obtiene la hora local desde el RTC del Raspberry Pi Pico."""
+        import time
+
+        rtc = RTC()
+
+        # Obtener la hora UTC del RTC
+        rtc_time = rtc.datetime()
+        year, month, day, weekday, hour, minute, second, _ = rtc_time
+
+        # Convertir la hora UTC a timestamp
+        utc_time_tuple = (year, month, day, hour, minute, second, 0, 0, 0)
+        utc_timestamp = time.mktime(utc_time_tuple)
+
+        # Calcular la diferencia horaria para España/Madrid
+        # CET: UTC+1, CEST: UTC+2
+        if self.is_dst_europe_madrid(year, month, day):
+            offset_seconds = 2 * 3600  # Horario de verano
+        else:
+            offset_seconds = 1 * 3600  # Horario estándar
+
+        local_time_tuple = time.localtime(utc_timestamp + offset_seconds)
+
+        return local_time_tuple[
+               :6]  # Devolver solo año, mes, día, hora, minuto, segundo
+
+    def get_rtc_local_time_string (self):
+        """Obtiene la hora local desde el RTC del Raspberry Pi Pico en formato string."""
+        local_time = self.get_rtc_local_time()
+        return f"{local_time[0]:04d}-{local_time[1]:02d}-{local_time[2]:02d} {local_time[3]:02d}:{local_time[4]:02d}:{local_time[5]:02d}"
+
+    def scanI2C(self):
+        """Realiza un escaneo de i2c."""
+        print('')
+        print('Scan i2c bus...')
+        devices = self.i2c_0.scan()
+
+        if len(devices) == 0:
+            print("No i2c device !")
+        else:
+            print('i2c devices found:',len(devices))
+
+        for device in devices:
+            print("Decimal address: ",device," | Hexa address: ",hex(device))
+
+        print('Scan i2c bus... OK')
+        print('')
+
+    def deepsleep(self, seconds):
+        """
+        Entra en modo sueño profundo durante los segundos recibidos.
+        Para evitar problemas al entrar en el modo, se necesita desactivar el wireless primero.
+        """
+        self.wifi_disconnect()
+        deepsleep(seconds * 1000)
