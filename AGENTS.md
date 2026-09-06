@@ -1,12 +1,61 @@
 # AGENTS.md — Guía para desarrollar este proyecto con MicroPython
 
-Este archivo describe el contexto, arquitectura y convenciones que debe seguir cualquier agente (humano o IA) que trabaje en este proyecto.
+Este archivo describe el contexto, arquitectura, reglas de documentación y convenciones que debe seguir cualquier agente (humano o IA) que trabaje en este proyecto.
+
+---
+
+## Documentación: Protocolo y Reglas Permanentes
+
+> [!IMPORTANT]
+> **Jerarquía de verdad sobre el estado actual:**
+> Código (`src/`) > `docs/info/` > `AGENTS.md` > el resto.  
+> `docs/planning/`, `docs/future/` y `docs/auditorias/` NUNCA son fuente de verdad del estado.
+
+### Reglas Permanentes
+1. **Documentar es parte de la tarea**: Ninguna tarea está terminada si su documentación no se actualiza EN EL MISMO COMMIT que el código.
+2. **Discrepancia entre documentación y código**: Se corrige en el commit en que se detecta, no se anota para después.
+3. **Mantenimiento de módulos**: Tocas un módulo → actualizas su `.md`. Creas uno → lo creas desde `docs/info/_MODULE_TEMPLATE.md` y lo indexas en `docs/info/README.md` y en `AGENTS.md`. Eliminas uno → borras su `.md` y lo quitas de TODOS los índices.
+4. **Pie de firma temporal obligatorio**: Todo archivo bajo `docs/`, en cualquier subdirectorio, termina con esta línea exacta detrás de un separador `---`:  
+   `> Creado: YYYY-MM-DD · Última revisión: YYYY-MM-DD`.  
+   La fecha de creación no se modifica nunca; la de revisión se actualiza en el mismo commit que el documento.
+5. **Checklists de verificación**: Toda fase o módulo de una planificación empieza con una descripción y termina con un checklist `- [ ]`. `[x]` significa verificado funcionando y cumpliendo. Escribir el código no marca la casilla.
+6. **Contenido efímero**: `docs/planning/` y `docs/auditorias/` son trabajo temporal de UN desarrollador (no compartido, ignorados por git). Ciclo: crear → trabajar → verificar → promocionar lo duradero → BORRAR.
+7. **Promoción antes de borrar**:
+   - Comportamiento del módulo → `docs/info/<modulo>.md`
+   - Decisión deliberada de diseño → `docs/info/decisiones-tecnicas.md`
+   - Trampa duradera → Tabla de trampas de este `AGENTS.md`
+   - Cambio de arquitectura, rutas o comandos → este `AGENTS.md`
+   - Idea aplazada → `docs/future/`
+   - Regresión → un test o procedimiento de verificación en el `.md` del módulo.
+8. **Sin enlaces rotos**: Nada versionado en git puede enlazar a `docs/planning/` ni a `docs/auditorias/`. Ambos deben permanecer en `.gitignore`.
+9. **Lectura Dirigida**: Trabajando en un módulo lees SOLO su `.md` en `docs/info/`; si tocas hardware o LEDs añades `DESIGN.md` y `COMPONENTS.md`; si tocas una API o protocolo de terceros añades `docs/apis/<api>/` en este orden: `README.md` → `00-fundamentos.md` + `ERRATAS.md` + `LIMITACIONES.md` → solo el archivo específico que necesites. No leas el resto de `docs/info/`, ni `docs/future/`, ni `docs/planning/`.
+10. **Verificación de APIs externas**: Nunca configures nada a partir de la especificación oficial de una API o protocolo externo sin verificarlo con una petición o prueba real. Lo no comprobado se marca como `⚠️ sin verificar`.
+11. **Convención de idioma**: Documentación, comentarios y textos de usuario en español. Identificadores, nombres de fichero y de directorio, y mensajes de log en inglés. Excepción: los campos que devuelve una API de terceros se leen tal como los envía.
+12. **Atribución**: Nick `@raupulus`, email `public@raupulus.dev`. Sin firmas de agente en commits, PRs ni documentación (nada de `Co-Authored-By`, «Generated with…» ni identificadores de sesión).
+
+### Índice Maestro de `docs/info/`
+
+| Documento | Enlace | Contenido |
+|---|---|---|
+| Índice Maestro | [`docs/info/README.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/README.md) | Visión general, índice de módulos y reglas de navegación |
+| Plantilla de Módulo | [`docs/info/_MODULE_TEMPLATE.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/_MODULE_TEMPLATE.md) | Estructura canónica obligatoria para documentar módulos |
+| Orquestador Main | [`docs/info/main.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/main.md) | Bucle principal, multihilo RP2040, buffers y sincronismo |
+| Driver CC1101 | [`docs/info/CC1101.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/CC1101.md) | Driver SPI a 868.3 MHz, registros de radio y control de FIFO |
+| Decodificador Radio | [`docs/info/WeatherSensor.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/WeatherSensor.md) | Decodificación Bresser 5-en-1 y 6-en-1, LFSR, paridad y BCD |
+| Cliente API REST | [`docs/info/Api.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/Api.md) | Cliente HTTP con urequests, reconexión Wi-Fi y JSON |
+| Abstracción Hardware | [`docs/info/RpiPico.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/RpiPico.md) | Wi-Fi con fallback, SPI, RTC, temperatura interna RP2040 |
+| Variables de Entorno | [`docs/info/env.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/env.md) | Configuración de pines, claves, flags y límites |
+| Diseño de Estados y LEDs | [`docs/info/DESIGN.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/DESIGN.md) | Diagrama de estados y código de parpadeos de LEDs |
+| Componentes y Pinout | [`docs/info/COMPONENTS.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/COMPONENTS.md) | Inventario físico, diagrama de pines y resistencia pull-up |
+| Comandos de Flashing | [`docs/info/commands.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/commands.md) | Guía de mpremote, PyCharm run configurations y REPL |
+| Decisiones Técnicas | [`docs/info/decisiones-tecnicas.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/decisiones-tecnicas.md) | Justificación de 2 hilos, buffers estáticos e ISR diferida |
+| Integración API REST | [`docs/info/apis/raupulus-weatherstation.md`](file:///Users/fryntiz/git/rpi-pico-weatherstation-bresser-read-868mhz-cc1101/docs/info/apis/raupulus-weatherstation.md) | Cómo consume el firmware el endpoint `/add/json` |
 
 ---
 
 ## Descripción del proyecto
 
-Receptor de datos de estación meteorológica Bresser 5-en-1 / 6-en-1 corriendo en una **Raspberry Pi Pico W** con MicroPython. El hardware de RF es un transceptor **CC1101** conectado por SPI que escucha a **868 MHz**. Los datos decodificados se suben a una API REST externa mediante Wi-Fi.
+Receptor de datos de estación meteorológica Bresser 5-en-1 / 6-en-1 corriendo en una **Raspberry Pi Pico W** con MicroPython. El hardware de RF es un transceptor **CC1101** conectado por SPI que escucha a **868.3 MHz**. Los datos decodificados se suben a una API REST externa mediante Wi-Fi.
 
 El proyecto es **solo recepción (RX)**; no emite señal alguna.
 
@@ -15,44 +64,48 @@ El proyecto es **solo recepción (RX)**; no emite señal alguna.
 ## Directorios relevantes
 
 ```
-src/                 ← Código fuente activo. AQUÍ se trabaja.
-  main.py            ← Bucle principal, IRQ GDO0, doble buffer, hilos
-  env.py             ← Variables de entorno (credenciales, pines, flags)
-  .env.example.py    ← Plantilla de env.py para nuevas instalaciones
+src/                       ← Código fuente activo en MicroPython.
+  main.py                  ← Bucle principal, IRQ GDO0, doble buffer, hilos
+  env.py                   ← Variables de entorno activas (ignorado en git)
+  .env.example.py          ← Plantilla base de configuración para nuevas instalaciones
   Drivers/
-    CC1101.py        ← Driver SPI del transceptor CC1101
+    CC1101.py              ← Driver SPI del transceptor CC1101
   Models/
-    WeatherSensor.py ← Wrapper de alto nivel + decodificador Bresser
-    Api.py           ← Cliente HTTP para la API REST
-    RpiPico.py       ← Abstracción de hardware (Wi-Fi, SPI, I2C, ADC, RTC)
+    WeatherSensor.py       ← Wrapper de radio + decodificador Bresser 5/6-en-1
+    Api.py                 ← Cliente HTTP para la API REST
+    RpiPico.py             ← Abstracción de hardware (Wi-Fi, SPI, I2C, ADC, RTC)
 
 docs/
-  info/              ← Documentación técnica detallada (Markdown)
-  images/            ← Esquemas y fotos del hardware
+  info/                    ← Documentación técnica VIVA del proyecto
+  apis/                    ← Documentación oficial destilada de tecnologías de terceros
+    bresser-protocol/      ← Especificación del protocolo de radio Bresser 868 MHz
+    cc1101/                ← Registros y strobes del chip TI CC1101
+    raupulus-api/          ← Especificación del servicio REST de telemetría
+  future/                  ← Iniciativas y componentes decididos pero aplazados
+  deploys/                 ← Guías de despliegue en placas Pico W
+  images/                  ← Esquemas y fotos del hardware
 
-old_c_project/       ← Proyecto C en ESP32. SOLO REFERENCIA para debugging.
-old_python_project/  ← Versión Python anterior. SOLO REFERENCIA.
+old_c_project/             ← Proyecto C en ESP32. SOLO REFERENCIA para debugging (no tocar).
+old_python_project/        ← Versión Python anterior. SOLO REFERENCIA (no tocar).
 ```
-
-**Nunca modificar** `old_c_project/` ni `old_python_project/`. Son referencias de solo lectura para resolver dudas sobre algoritmos o comportamientos conocidos.
 
 ---
 
 ## Entorno de ejecución
 
-- **Hardware**: Raspberry Pi Pico W (RP2040, doble core)
-- **Firmware**: MicroPython 1.28+ para RP2 Pico
+- **Hardware**: Raspberry Pi Pico W (RP2040, dual core ARM Cortex-M0+ a 133 MHz)
+- **Firmware**: MicroPython 1.28+ para RP2 Pico W
 - **Python target**: MicroPython — sin CPython stdlib completa
 - **Módulos disponibles en MicroPython**: `machine`, `network`, `urequests`, `ujson`, `utime`/`time`, `_thread`, `micropython`, `ntptime`, `gc`, `urandom`, `binascii`
-- **Módulos NO disponibles**: `typing` (se shimea), `asyncio` (no se usa), `threading` (se usa `_thread`)
+- **Módulos NO disponibles**: `typing` (se shimea), `asyncio` (no se usa en este proyecto), `threading` (se usa `_thread`)
 
 ### Restricciones MicroPython importantes
 
-- No usar f-strings en código muy crítico de memoria (aunque MicroPython 1.28 las soporta).
-- `_thread` en RP2040 ejecuta el segundo hilo en **Core 1** — hay que proteger los recursos compartidos con `_thread.allocate_lock()`.
-- `micropython.schedule()` es la única forma segura de hacer trabajo pesado desde una ISR (no hacer SPI dentro de IRQ).
-- `gc.collect()` debe llamarse periódicamente en el bucle principal para evitar fragmentación de heap.
+- `_thread` en RP2040 ejecuta el segundo hilo en **Core 1** — proteger recursos compartidos con `_thread.allocate_lock()`.
+- `micropython.schedule()` es la única forma segura de procesar eventos tras una ISR (prohibido transaccionar por SPI dentro de una IRQ).
+- `gc.collect()` debe llamarse periódicamente en el bucle principal para evitar fragmentación del heap.
 - No usar `time.sleep()` (bloquea); usar `sleep_ms()` de `time` o `utime`.
+- Los buffers de recepción deben ser preasignados como `bytearray` fijos para no generar presión en el recolector de basura.
 
 ---
 
@@ -60,182 +113,67 @@ old_python_project/  ← Versión Python anterior. SOLO REFERENCIA.
 
 ```
 Core 0 (main.py bucle while True)
-  ├─ Polling rápido del FIFO del CC1101 (ws.receive timeout=0)
-  ├─ Escribe paquetes en el buffer activo (bufA o bufB)
-  ├─ Rota el lote cuando está lleno o expira BATCH_WINDOW_MS
-  ├─ Gestiona subida a la API (api.send_to_api)
-  ├─ Heartbeat LED + parpadeo no bloqueante
-  └─ IRQ GDO0 → micropython.schedule(_on_gdo0_scheduled)
+  ├── Polling rápido del FIFO del CC1101 (ws.receive timeout=0)
+  ├── Escribe paquetes en el buffer activo (bufA o bufB)
+  ├── Rota el lote cuando está lleno (BATCH_SIZE) o expira BATCH_WINDOW_MS
+  ├── Gestiona subida a la API (api.send_to_api)
+  ├── Servicio de LEDs alternos y latido no bloqueante
+  └── IRQ GDO0 → micropython.schedule(_on_gdo0_scheduled)
 
 Core 1 (processor_thread)
-  ├─ Espera lotes marcados como ready (batch_ready[])
-  ├─ Decodifica cada trama (ws.decode)
-  ├─ Agrega temp/humidity/wind/rain
-  └─ Cuando el conjunto está completo → _set_upload_payload()
+  ├── Espera lotes marcados como ready (batch_ready[])
+  ├── Decodifica cada trama (ws.decode)
+  ├── Agrega variables meteorológicas (temp / hum / viento / lluvia)
+  ├── Controla timeout de mediciones parciales (PARTIAL_UPLOAD_TIMEOUT_MS)
+  └── Cuando el conjunto está completo → _set_upload_payload()
 ```
 
-La comunicación entre hilos usa variables globales + `_thread.allocate_lock()`. No usar `queue` (no existe en MicroPython).
-
----
-
-## Flujo de recepción de un paquete
-
-1. CC1101 recibe una trama en 868 MHz.
-2. **GDO0 baja** (fin de paquete) → dispara `_gdo0_irq` (ISR).
-3. ISR aplica debounce y llama `micropython.schedule(_on_gdo0_scheduled)`.
-4. Handler programado lee hasta 3 paquetes del FIFO (`ws.receive(timeout_ms=0)`).
-5. Llama `ws.decode(pkt)` → intenta 6-en-1 luego 5-en-1.
-6. Si `crc_ok`, guarda en `last_valid_decoded` y señala parpadeo de LEDs.
-7. En paralelo, el bucle principal también hace polling del FIFO y escribe en el doble buffer (bufA/bufB).
-8. El hilo de Core 1 procesa lotes, agrega variables meteorológicas y cuando tiene un conjunto completo (temp + humedad + viento + lluvia) deja el payload en `payload_to_upload`.
-9. El bucle principal detecta el payload pendiente y llama `api.send_to_api(payload)`.
+La comunicación entre hilos usa matrices preasignadas + `_thread.allocate_lock()`.
 
 ---
 
 ## Decodificación Bresser
 
-### Bresser 6-en-1 (18 bytes)
-
-La trama válida tiene 18 bytes. Verificación:
-- `digest = LFSR16(msg[2:17], gen=0x8810, init=0x5412)` debe coincidir con `(msg[0]<<8)|msg[1]`
-- Suma de `msg[2:18]` debe ser `0xFF` (módulo 256)
-
-Campos extraídos:
-- `sensor_id`: bytes 2..5 (32 bits big-endian)
-- `type`: nibble alto de byte 6
-- `chan`: nibble bajo de byte 6 (bits 0-2)
-- **Temperatura** (BCD): nibbles de bytes 15-16; si `raw > 600` → negativo como `(raw-1000)*0.1`
-- **Humedad** (BCD): byte 17
-- **Viento**: bytes 7-9 invertidos (`^ 0xFF`), BCD; dirección en bytes 10-11
-- **Lluvia**: bytes 12-14 invertidos, BCD 6 dígitos → mm * 0.1
-
-### Bresser 5-en-1 (26 bytes)
-
-Verificación:
-- **Paridad**: `msg[col] ^ msg[col+13] == 0xFF` para col 0..12
-- **Checksum**: conteo de bits 1 en `msg[14:26]` debe igualar `msg[13]`
-
-Campos extraídos:
-- `sensor_id`: byte 14 (8 bits)
-- `type`: `msg[15] & 0x7F` (bit7 = flag de arranque)
-- **Temperatura** (BCD): bytes 20-21; signo en nibble bajo de byte 25
-- **Humedad** (BCD): byte 22
-- **Viento**: dirección = `(msg[17] & 0x0F) * 22.5`; ráfaga de bytes 16-17; media de bytes 18-19
-- **Lluvia** (BCD): bytes 23-24; si `type >= 0x39 && <= 0x3B` (pluviómetro profesional), multiplicar por 2.5
-
-### Estrategia de decodificación
-
-```
-packet recibido
-  │
-  ├─ Stripping del byte de longitud (modo variable-length del CC1101)
-  │
-  ├─ Fast path 6-in-1: primeros 18 bytes → _decode_6in1
-  │
-  ├─ Layout 27 bytes con packet[0]==0xD4 → msg = packet[1:27] → _try_decoders
-  ├─ Layout 26 bytes → msg = packet[:26] → _try_decoders
-  │
-  └─ Sliding window (si ALLOW_SLIDING_DECODE=True)
-       ├─ Ventanas de 18B para 6-in-1
-       └─ Ventanas de 26B para _try_decoders
-```
+- **Bresser 6-en-1 (18 bytes)**: Verificación con LFSR-16 (`gen=0x8810`, `init=0x5412`) coincidente con `(msg[0]<<8)|msg[1]` y suma con acarreo en `msg[2:18]` igual a `0xFF`. Temperatura negativa calculada como `(raw - 1000) * 0.1` si `raw > 600`.
+- **Bresser 5-en-1 (26 bytes)**: Verificación por paridad invertida (`msg[i] ^ msg[i+13] == 0xFF`) y checksum por popcount en `msg[14:26]` igual a `msg[13]`. Factor de lluvia 2.5 en sensores profesionales `type >= 0x39 && <= 0x3B`.
 
 ---
 
-## Configuración (env.py)
+## Tabla de Trampas Conocidas
 
-Todos los parámetros viven en `src/env.py`. Nunca hardcodear credenciales en otro sitio.
-
-Variables críticas que un agente debe tener en cuenta al desarrollar:
-
-| Variable | Efecto |
-|---|---|
-| `ENABLE_CC1101` | Activa/desactiva el receptor RF |
-| `CC1101_PKT_LEN` | Longitud máxima de paquete (recomendado 40) |
-| `CC1101_FREQ_HZ` | Frecuencia central (868000000 o 868300000) |
-| `CC1101_BW_DEFAULT` | Ancho de banda RX ('270k' o '250k') |
-| `FIND_STATION_IDS` | Modo descubrimiento de IDs (sin subida a API) |
-| `SENSOR_IDS_INC` | Filtro positivo de IDs |
-| `SENSOR_IDS_EXC` | Filtro negativo de IDs |
-| `ALLOW_SLIDING_DECODE` | Ventana deslizante para tramas desalineadas |
-| `DECODE_DEBUG` | Log detallado de fallos de decodificación |
-| `FORCE_BRESSER_MODEL` | Forzar modelo: None, '5in1' o '6in1' |
-| `FIND_ID_STRICT` | Exige checksum además de paridad en búsqueda 5-en-1 |
-| `BATCH_SIZE` | Tamaño del lote doble buffer (default 50) |
-| `BATCH_WINDOW_MS` | Ventana temporal máxima del lote (default 60000ms) |
-| `DEBUG` | Activa prints de diagnóstico generales |
+| Subsistema | Trampa | Causa / Comportamiento | Solución / Mitigación |
+|---|---|---|---|
+| **Hardware SPI** | CC1101 en estado zombie al reiniciar Pico W | El pin CS queda flotando en alta impedancia durante el arranque | Instalar resistencia pull-up física de 10 kΩ a 3.3V en pin CSN (`GP17`) |
+| **Transceptor RF** | Pérdida de recepción por `MARCSTATE=0x11` | El FIFO de 64 bytes se llena si se emiten ráfagas y el bucle tarda en drenar | Ejecutar `ensure_rx()` periódicamente para hacer flush (`SIDLE` + `SFRX` + `SRX`) |
+| **MicroPython ISR** | Cuelgue del intérprete al recibir paquete | Intentar llamadas SPI directas dentro de la interrupción hardware del pin | Usar `micropython.schedule()` para diferir la lectura al contexto de MicroPython |
+| **Cliente HTTP** | `OSError: -28` o agotamiento de memoria | No cerrar el socket de red tras una petición HTTP en microcontrolador | Llamar siempre a `response.close()` en un bloque `finally` |
+| **Multihilo RP2040** | Corrupción de payloads o deadlocks | Escritura concurrente en buffers compartidos sin lock | Utilizar `_thread.allocate_lock()` en lecturas/escrituras de buffers y banderas |
+| **Memoria Heap** | Congelaciones por Stop-The-World en GC | Creación continua de listas o cadenas temporales en el bucle de radio | Usar slicing sobre `bytearray` estáticos preasignados (`bufA`, `bufB`) |
 
 ---
 
-## Convenciones de código
+## Referencia de Pines GPIO por Defecto
 
-- Todo el código nuevo va en `src/`.
-- Las clases de hardware van en `src/Drivers/` (bajo nivel, solo hardware).
-- La lógica de negocio va en `src/Models/` (alto nivel).
-- Toda excepción debe capturarse y, si `DEBUG`, imprimirse. Nunca dejar caer el bucle principal por una excepción no capturada.
-- Las ISR deben ser mínimas: solo debounce + `micropython.schedule`. Nunca SPI ni I2C dentro de una ISR.
-- Los buffers preasignados (`bufA`, `bufB`) son `bytearray` de tamaño fijo para no presionar el GC.
-- Al trabajar con tiempo, siempre usar `ticks_ms()` y `ticks_diff()` de `time` (son seguros ante desbordamiento de 32 bits).
-
----
-
-## Referencia de pines por defecto
-
-| Señal | GPIO | Función |
+| Señal | GPIO Pico W | Función |
 |---|---|---|
-| SPI0 SCK | GP18 | Reloj SPI del CC1101 |
-| SPI0 MOSI | GP19 | Datos salida al CC1101 |
-| SPI0 MISO | GP16 | Datos entrada del CC1101 |
-| SPI0 CS (CSN) | GP17 | Chip select (pull-up 10kΩ a 3.3V) |
-| GDO0 | GP20 | Fin de paquete (IRQ falling) |
-| GDO2 | GP21 | Estado radio (opcional) |
-| LED_READ | GP12 | Indicador de subida a API / heartbeat |
-| LED_ALT1 | GP13 | Parpadeo alterno recepción válida |
-| LED_ALT2 | GP14 | Parpadeo alterno recepción válida |
-
----
-
-## Flujo de subida a la API
-
-```
-POST {API_URL}/{API_PATH}
-Headers:
-  Authorization: Bearer {API_TOKEN}
-  Content-Type: application/json
-
-Body:
-{
-  "hardware_device_id": <DEVICE_ID>,
-  "data": {
-    "temperature": float,
-    "humidity": float,
-    "wind_speed": float,
-    "wind_average_speed": float,
-    "wind_min_speed": float,
-    "wind_max_speed": float,
-    "wind_grades": float,
-    "rain": float,
-    "rain_intensity": float,
-    "rain_month": float
-  }
-}
-
-Respuesta esperada: HTTP 201
-```
+| SPI0 SCK | `GP18` | Reloj SPI del CC1101 |
+| SPI0 MOSI | `GP19` | Salida de datos Pico W → CC1101 |
+| SPI0 MISO | `GP16` | Entrada de datos CC1101 → Pico W |
+| SPI0 CS (CSN) | `GP17` | Chip select (requiere resistencia Pull-Up 10kΩ a 3.3V) |
+| GDO0 | `GP20` | Fin de paquete de radio (IRQ falling diferida) |
+| GDO2 | `GP21` | Estado de radio (reservado) |
+| LED ON | `GP15` | Indicador fijo de bucle activo esperando datos (verde) |
+| LED READ | `GP7` | Indicador de subida HTTP activa a la API (rojo) |
+| LED ALT1 | `GP13` | Parpadeo alterno al decodificar paquete válido (azul 1) |
+| LED ALT2 | `GP14` | Parpadeo alterno al decodificar paquete válido (azul 2) |
+| Onboard LED | `"LED"` | Indicador fijo de encendido del microcontrolador (verde) |
 
 ---
 
 ## Cómo trabajar en este proyecto
 
-1. **Leer** `src/env.py` para entender la configuración activa.
-2. **Nunca tocar** `old_c_project/` ni `old_python_project/` — solo leerlos como referencia.
-3. **Probar cambios** cargando los archivos modificados de `src/` a la Pico con Thonny, rshell o mpremote.
-4. **Diagnóstico**: activar `DEBUG=True` y `DECODE_DEBUG=True` en `env.py` para ver el flujo completo de decodificación.
-5. **Descubrir el ID de la estación**: poner `FIND_STATION_IDS=True` y observar la consola hasta identificar el ID propio.
-6. **Falsos positivos**: si se decodifican tramas de sensores vecinos, añadir el ID propio a `SENSOR_IDS_INC` y/o poner `FORCE_BRESSER_MODEL` al tipo correcto.
-
----
-
-## Dependencias externas
-
-Ninguna librería externa de terceros. Solo MicroPython estándar + módulos del firmware RP2 (`urequests`, `ujson`, `network`, `ntptime`, etc., que vienen incluidos en el firmware oficial de MicroPython para Pico W).
+1. **Lectura dirigida**: Al trabajar en un módulo, lee únicamente su documento técnico en `docs/info/<modulo>.md`.
+2. **Configuración local**: Copia `src/.env.example.py` a `src/env.py` y ajusta credenciales. Nunca subas `env.py` al control de versiones.
+3. **Flashing**: Flashea con la configuración PyCharm "Flash src" o mediante `mpremote fs cp ...`.
+4. **No tocar referencias históricas**: `old_c_project/` y `old_python_project/` son de solo lectura.
+5. **Cierre de tareas**: No des por finalizada ninguna tarea sin actualizar en el **mismo commit** el documento correspondiente en `docs/info/` y la fecha de última revisión.
